@@ -1,0 +1,10 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+.env
+.vscode
+ vendor/
+configs/gcloud/firebaseServiceAccount.json
