@@ -23,3 +23,17 @@ func TimeNowUTC() time.Time {
 	utc, _ := time.LoadLocation("UTC")
 	return time.Now().In(utc)
 }
+
+func FindIntInSlice(slice []int, val int) bool {
+	if len(slice) == 0 {
+		return false
+	}
+
+	for _, item := range slice {
+		if item == val {
+			return true
+		}
+	}
+
+	return false
+}

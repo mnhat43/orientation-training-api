@@ -7,10 +7,11 @@ import (
 type Course struct {
 	cm.BaseModel
 
-	ID          int
-	Title       string
+	ID          int    `pg:",pk"`
+	Title       string `pg:",notnull"`
 	Description string
-	CreatedBy   int
+	Thumbnail   string
+	CreatedBy   int `pg:",fk:created_by"`
 
-	User User `pg:",fk:created_by"`
+	User User `pg:"rel:has-one"`
 }
