@@ -13,5 +13,5 @@ type Course struct {
 	Thumbnail   string
 	CreatedBy   int `pg:",fk:created_by"`
 
-	User User `pg:"rel:has-one"`
+	// User User `pg:"rel:has-one"`
 }

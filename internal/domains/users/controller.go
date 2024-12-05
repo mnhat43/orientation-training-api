@@ -6,8 +6,8 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pg/pg"
-	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 )
 

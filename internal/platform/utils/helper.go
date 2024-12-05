@@ -37,3 +37,15 @@ func FindIntInSlice(slice []int, val int) bool {
 
 	return false
 }
+
+// FindStringInArray : find item in array
+// Params    : array, string item
+// Returns   : index, bool
+func FindStringInArray(slice []string, val string) (int, bool) {
+	for i, item := range slice {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}

@@ -47,23 +47,23 @@ func (repo *PgCourseRepository) GetCourses(courseListParams *param.CourseListPar
 // SaveCourse : insert data to course
 // Params : orgID, param.CreateCourseParams
 // Returns : return object of record that 've just been inserted
-func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCourseParams, userCourseRepo rp.UserCourseRepository) (m.Course, error) {
+func (repo *PgCourseRepository) SaveCourse(createCourseDBParams *param.CreateCourseDBParams, userCourseRepo rp.UserCourseRepository) (m.Course, error) {
 	course := m.Course{}
 	err := repo.DB.RunInTransaction(func(tx *pg.Tx) error {
 		var transErr error
 		course, transErr = repo.InsertCourseWithTx(
 			tx,
-			createCourseParams.CourseTitle,
-			createCourseParams.CourseDescription,
-			createCourseParams.Thumbnail,
-			createCourseParams.CreatedBy,
+			createCourseDBParams.Title,
+			createCourseDBParams.Description,
+			createCourseDBParams.Thumbnail,
+			createCourseDBParams.CreatedBy,
 		)
 		if transErr != nil {
 			repo.Logger.Error(transErr)
 			return transErr
 		}
 
-		transErr = userCourseRepo.InsertUserCourseWithTx(tx, createCourseParams.CreatedBy, course.ID)
+		transErr = userCourseRepo.InsertUserCourseWithTx(tx, createCourseDBParams.CreatedBy, course.ID)
 		if transErr != nil {
 			repo.Logger.Error(transErr)
 			return transErr
@@ -75,12 +75,12 @@ func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCours
 }
 
 // InsertCourseWithTx : insert data to courses
-// Params : pg.Tx, courseTitle, courseDescription, thumbnail
+// Params : pg.Tx, title, description, thumbnail
 // Returns : return course object , error
-func (repo *PgCourseRepository) InsertCourseWithTx(tx *pg.Tx, courseTitle string, courseDescription string, thumbnail string, createdBy int) (m.Course, error) {
+func (repo *PgCourseRepository) InsertCourseWithTx(tx *pg.Tx, title string, description string, thumbnail string, createdBy int) (m.Course, error) {
 	course := m.Course{
-		Title:       courseTitle,
-		Description: courseDescription,
+		Title:       title,
+		Description: description,
 		Thumbnail:   thumbnail,
 		CreatedBy:   createdBy,
 	}
@@ -89,7 +89,7 @@ func (repo *PgCourseRepository) InsertCourseWithTx(tx *pg.Tx, courseTitle string
 }
 
 // UpdateCourse : update course
-// Params : CourseID, CourseTitle,CourseThumbnail, CourseDescription
+// Params : CourseID, Title,Thumbnail, Description
 // Returns : error
 func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCourseParams, userCourseRepo rp.UserCourseRepository) error {
 	currentCourse, err := repo.GetCourseByID(courseParams.ID)
@@ -99,7 +99,7 @@ func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCoursePar
 	}
 
 	course := &m.Course{
-		Title:       courseParams.CourseTitle,
+		Title:       courseParams.Title,
 		Description: courseParams.Description,
 		Thumbnail:   courseParams.Thumbnail,
 		CreatedBy:   courseParams.CreatedBy,

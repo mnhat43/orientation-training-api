@@ -7,4 +7,8 @@ const (
 	FormatDateDisplay           = "2006/01/02"
 	FormatDateDatabase          = "2006-01-02"
 	PostgreCharacterDisplayDate = "YYYY/MM/DD"
+	AvatarFolderCLD             = "images/avatar/"
+	ThumbnailFolderCLD          = "images/thumbnail/"
+	FileFolderCLD               = "files/"
+	VideoFolderCLD              = "videos/"
 )
