@@ -35,7 +35,7 @@ func (repo *PgCourseRepository) GetCourses(courseListParams *param.CourseListPar
 	courses := []m.Course{}
 	queryObj := repo.DB.Model(&courses)
 	if courseListParams.Keyword != "" {
-		queryObj.Where("LOWER(name) LIKE LOWER(?)", "%"+courseListParams.Keyword+"%")
+		queryObj.Where("LOWER(title) LIKE LOWER(?)", "%"+courseListParams.Keyword+"%")
 	}
 	queryObj.Offset((courseListParams.CurrentPage - 1) * courseListParams.RowPerPage)
 	queryObj.Order("created_at DESC")
@@ -157,3 +157,10 @@ func (repo *PgCourseRepository) DeleteCourse(courseID int) error {
 
 	return err
 }
+
+// func (r *PgCourseRepository) GetCourseDetail(courseID string) (m.CourseDetail, error) {
+
+// 	// Implement the method logic here
+
+// 	return m.CourseDetail{}, nil
+// }

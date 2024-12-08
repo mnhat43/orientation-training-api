@@ -253,3 +253,62 @@ func (ctr *CourseController) DeleteCourse(c echo.Context) error {
 		Message: "Deleted",
 	})
 }
+
+// func (ctr *CourseController) GetCourseDetail(c echo.Context) error {
+// 	courseIDParam := new(param.CourseIDParam)
+// 	if err := c.Bind(courseIDParam); err != nil {
+// 		return c.JSON(http.StatusOK, cf.JsonResponse{
+// 			Status:  cf.FailResponseCode,
+// 			Message: "Invalid Params",
+// 			Data:    err,
+// 		})
+// 	}
+
+// 	if _, err := valid.ValidateStruct(courseIDParam); err != nil {
+// 		return c.JSON(http.StatusOK, cf.JsonResponse{
+// 			Status:  cf.FailResponseCode,
+// 			Message: err.Error(),
+// 		})
+// 	}
+
+// 	course, er := ctr.CourseRepo.GetCourseByID(courseIDParam.CourseID)
+
+// 	if er != nil {
+// 		return c.JSON(http.StatusOK, cf.JsonResponse{
+// 			Status:  cf.FailResponseCode,
+// 			Message: "Course not found",
+// 			Data:    er,
+// 		})
+// 	}
+
+// 	if course.Thumbnail != "" {
+// 		err := ctr.cloud.DeleteFileCloud(course.Thumbnail, cf.ThumbnailFolderCLD)
+// 		if err != nil {
+// 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+// 				Status:  cf.FailResponseCode,
+// 				Message: "System Error: Failed to delete thumbnail from Cloudinary",
+// 			})
+// 		}
+// 	}
+
+// 	err := ctr.UserCourseRepo.DeleteByCourseId(courseIDParam.CourseID)
+// 	if err != nil {
+// 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+// 			Status:  cf.FailResponseCode,
+// 			Message: "System Error",
+// 		})
+// 	}
+
+// 	err = ctr.CourseRepo.DeleteCourse(courseIDParam.CourseID)
+// 	if err != nil {
+// 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+// 			Status:  cf.FailResponseCode,
+// 			Message: "System Error",
+// 		})
+// 	}
+
+// 	return c.JSON(http.StatusOK, cf.JsonResponse{
+// 		Status:  cf.SuccessResponseCode,
+// 		Message: "Deleted",
+// 	})
+// }
