@@ -97,8 +97,10 @@ func main() {
 	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{http.MethodOptions, http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{http.MethodOptions, http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
 	}))
 
 	e.GET("/", func(c echo.Context) error {
@@ -109,6 +111,7 @@ func main() {
 	router.UserRoute(e.Group("/api/user"))
 	router.AuthRoute(e.Group("/auth"))
 	router.CourseRoute(e.Group("/course"))
+	router.ModuleRoute(e.Group("/module"))
 	// router.AdminRouter(e.Group("/admin"))
 
 	go func() {

@@ -3,6 +3,8 @@ package router
 import (
 	"orientation-training-api/internal/domains/auth"
 	c "orientation-training-api/internal/domains/courses"
+	mdi "orientation-training-api/internal/domains/moduleitem"
+	md "orientation-training-api/internal/domains/modules"
 	uc "orientation-training-api/internal/domains/usercourse"
 	u "orientation-training-api/internal/domains/users"
 	cld "orientation-training-api/internal/platform/cloud"
@@ -13,10 +15,12 @@ import (
 )
 
 type AppRouter struct {
-	authCtr   *auth.AuthController
-	userCtr   *u.UserController
-	courseCtr *c.CourseController
-	ucCtr     *uc.UserCourseController
+	authCtr       *auth.AuthController
+	userCtr       *u.UserController
+	courseCtr     *c.CourseController
+	moduleCtr     *md.ModuleController
+	moduleItemCtr *mdi.ModuleItemController
+	ucCtr         *uc.UserCourseController
 	// adminCtr *ad.Controller
 
 	userMw *u.UserMiddleware
@@ -26,15 +30,19 @@ type AppRouter struct {
 func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	userRepo := u.NewPgUserRepository(logger)
 	courseRepo := c.NewPgCourseRepository(logger)
+	moduleRepo := md.NewPgModuleRepository(logger)
+	moduleItemRepo := mdi.NewPgModuleItemRepository(logger)
 	ucRepo := uc.NewPgUserCourseRepository(logger)
 	// adminRepo := ad.NewPgAdminRepository(logger)
 
 	cldStorage := cld.NewCloudinaryStorage(logger)
 
 	r = &AppRouter{
-		authCtr:   auth.NewAuthController(logger, userRepo),
-		userCtr:   u.NewUserController(logger, userRepo),
-		courseCtr: c.NewCourseController(logger, courseRepo, ucRepo, cldStorage),
+		authCtr:       auth.NewAuthController(logger, userRepo),
+		userCtr:       u.NewUserController(logger, userRepo),
+		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, cldStorage),
+		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
+		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, moduleRepo),
 		// adminCtr: ad.NewAdminController(),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
@@ -74,7 +82,23 @@ func (r *AppRouter) CourseRoute(g *echo.Group) {
 	g.POST("/add-course", r.courseCtr.AddCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	// g.POST("/update-course", r.courseCtr.UpdateCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/delete-course", r.courseCtr.DeleteCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	// g.POST("/get-course-detail", r.courseCtr.GetCourseDetail, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 
 	// g.GET("/getuser", r.userCtr.GetLoginUser, isLoggedIn)
 
+}
+
+func (r *AppRouter) ModuleRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.POST("/get-module-list", r.moduleCtr.GetModuleList, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/get-module-details", r.moduleCtr.GetModuleDetails, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/add-module", r.moduleCtr.AddModule, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/delete-module", r.moduleCtr.DeleteModule, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+
+	g.POST("/get-module-item-list", r.moduleItemCtr.GetModuleItemList, isLoggedIn, r.userMw.InitUserProfile)
+	// g.POST("/delete-module", r.moduleCtr.DeleteCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
