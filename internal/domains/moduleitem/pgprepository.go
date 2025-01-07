@@ -31,3 +31,37 @@ func (repo *PgModuleItemRepository) GetModuleItems(moduleItemListParams *param.M
 	totalRow, err := queryObj.SelectAndCount()
 	return moduleItems, totalRow, err
 }
+
+// SaveModuleItem : insert data to item
+// Params : param.CreateCourseParams
+// Returns : return object of record that 've just been inserted
+func (repo *PgModuleItemRepository) SaveModuleItem(createModuleItemParams *param.CreateModuleItemParams) (m.ModuleItem, error) {
+	moduleItem := m.ModuleItem{
+		Title:    createModuleItemParams.Title,
+		ItemType: createModuleItemParams.ItemType,
+		Resource: createModuleItemParams.Resource,
+		ModuleID: createModuleItemParams.ModuleID,
+	}
+
+	err := repo.DB.Insert(&moduleItem)
+	return moduleItem, err
+}
+
+func (repo *PgModuleItemRepository) GetModuleItemByID(id int) (m.ModuleItem, error) {
+	moduleItem := m.ModuleItem{}
+	err := repo.DB.Model(&moduleItem).
+		Where("id = ?", id).
+		Where("deleted_at is null").
+		First()
+
+	return moduleItem, err
+}
+
+func (repo *PgModuleItemRepository) DeleteModuleItem(moduleItemID int) error {
+	moduleItem := m.ModuleItem{}
+	_, err := repo.DB.Model(&moduleItem).
+		Where("id = ?", moduleItemID).
+		Delete()
+
+	return err
+}

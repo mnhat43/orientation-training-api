@@ -111,6 +111,7 @@ func main() {
 	router.UserRoute(e.Group("/api/user"))
 	router.AuthRoute(e.Group("/auth"))
 	router.CourseRoute(e.Group("/course"))
+	router.ModuleItemRoute(e.Group("/module-item"))
 	router.ModuleRoute(e.Group("/module"))
 	// router.AdminRouter(e.Group("/admin"))
 

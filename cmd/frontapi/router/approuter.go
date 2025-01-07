@@ -42,7 +42,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		userCtr:       u.NewUserController(logger, userRepo),
 		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, cldStorage),
 		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
-		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, moduleRepo),
+		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, cldStorage),
 		// adminCtr: ad.NewAdminController(),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
@@ -98,7 +98,17 @@ func (r *AppRouter) ModuleRoute(g *echo.Group) {
 	g.POST("/get-module-details", r.moduleCtr.GetModuleDetails, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/add-module", r.moduleCtr.AddModule, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/delete-module", r.moduleCtr.DeleteModule, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+}
+
+func (r *AppRouter) ModuleItemRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
 
 	g.POST("/get-module-item-list", r.moduleItemCtr.GetModuleItemList, isLoggedIn, r.userMw.InitUserProfile)
-	// g.POST("/delete-module", r.moduleCtr.DeleteCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/add-module-item", r.moduleItemCtr.AddModuleItem, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/delete-module-item", r.moduleItemCtr.DeleteModuleItem, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+
+	// g.POST("/add-module-item-video", r.moduleItemCtr.AddModuleItemVideo, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }

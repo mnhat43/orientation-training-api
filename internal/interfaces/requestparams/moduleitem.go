@@ -1,9 +1,9 @@
 package requestparams
 
 type CreateModuleItemParams struct {
-	Title    string `json:"title" form:"module_title" valid:"required"`
-	ItemType string `json:"item_type" form:"module_item_type" valid:"required"`
-	Url      string `json:"url" form:"module_url"`
+	Title    string `json:"title" form:"title" valid:"required"`
+	ItemType string `json:"item_type" form:"item_type" valid:"required"`
+	Resource string `json:"resource" form:"resource"`
 	ModuleID int    `json:"module_id" form:"module_id" valid:"required"`
 }
 
@@ -12,4 +12,8 @@ type ModuleItemListParams struct {
 	CurrentPage int    `json:"current_page" valid:"-"`
 	RowPerPage  int    `json:"row_per_page"`
 	Keyword     string `json:"keyword"`
+}
+
+type ModuleItemIDParam struct {
+	ModuleItemID int `json:"moduleItem_id" valid:"required"`
 }
