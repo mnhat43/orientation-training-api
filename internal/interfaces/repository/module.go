@@ -10,7 +10,7 @@ type ModuleRepository interface {
 	SaveModule(createModuleParams *param.CreateModuleParams) (m.Module, error)
 	GetModuleByID(id int) (m.Module, error)
 	DeleteModule(moduleID int) error
-
+	GetModuleIDsByCourseID(courseID int) ([]int, error)
 	// GetModuleDetail(moduleListParams *param.ModuleListParams) ([]m.ModuleDetail, int, error)
 	// DeleteModule(moduleID int) error
 }

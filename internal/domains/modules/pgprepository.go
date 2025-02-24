@@ -65,3 +65,15 @@ func (repo *PgModuleRepository) DeleteModule(moduleID int) error {
 
 	return err
 }
+
+func (repo *PgModuleRepository) GetModuleIDsByCourseID(courseID int) ([]int, error) {
+	moduleIDs := []int{}
+	err := repo.DB.Model((*m.Module)(nil)).
+		Column("id").
+		Where("course_id = ?", courseID).
+		Select(&moduleIDs)
+	if err != nil {
+		return nil, err
+	}
+	return moduleIDs, nil
+}

@@ -5,6 +5,7 @@ import (
 	param "orientation-training-api/internal/interfaces/requestparams"
 	m "orientation-training-api/internal/models"
 
+	"github.com/go-pg/pg/v9"
 	"github.com/labstack/echo/v4"
 )
 
@@ -64,4 +65,17 @@ func (repo *PgModuleItemRepository) DeleteModuleItem(moduleItemID int) error {
 		Delete()
 
 	return err
+}
+
+func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int, itemType string) ([]m.ModuleItem, error) {
+	moduleItems := []m.ModuleItem{}
+	err := repo.DB.Model(&moduleItems).
+		Where("module_id IN (?)", pg.In(moduleIDs)).
+		Where("item_type = ?", itemType).
+		Where("deleted_at is null").
+		Select()
+	if err != nil {
+		return nil, err
+	}
+	return moduleItems, nil
 }

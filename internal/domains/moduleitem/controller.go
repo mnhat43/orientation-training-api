@@ -2,6 +2,7 @@ package moduleitem
 
 import (
 	"net/http"
+	"net/url"
 	cf "orientation-training-api/configs"
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
@@ -123,14 +124,32 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 	}
 
 	if itemType == "video" {
-		url := c.FormValue("url")
-		if !valid.IsURL(url) {
+		videoURL := c.FormValue("url")
+		if !valid.IsURL(videoURL) {
 			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
 				Message: "Invalid URL format for video",
 			})
 		}
-		createModuleItemParams.Resource = url
+
+		parsedURL, err := url.Parse(videoURL)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Failed to parse video URL",
+			})
+		}
+
+		queryParams := parsedURL.Query()
+		videoId := queryParams.Get("v")
+		if videoId == "" {
+			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid YouTube video URL: missing 'v' parameter",
+			})
+		}
+
+		createModuleItemParams.Resource = videoId
 	}
 
 	if itemType == "file" {

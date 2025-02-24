@@ -3,6 +3,7 @@ package router
 import (
 	"orientation-training-api/internal/domains/auth"
 	c "orientation-training-api/internal/domains/courses"
+	lec "orientation-training-api/internal/domains/lectures"
 	mdi "orientation-training-api/internal/domains/moduleitem"
 	md "orientation-training-api/internal/domains/modules"
 	uc "orientation-training-api/internal/domains/usercourse"
@@ -21,6 +22,8 @@ type AppRouter struct {
 	moduleCtr     *md.ModuleController
 	moduleItemCtr *mdi.ModuleItemController
 	ucCtr         *uc.UserCourseController
+	lectureCtr    *lec.LectureController
+
 	// adminCtr *ad.Controller
 
 	userMw *u.UserMiddleware
@@ -43,6 +46,8 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, cldStorage),
 		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, cldStorage),
+		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo),
+
 		// adminCtr: ad.NewAdminController(),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
@@ -111,4 +116,14 @@ func (r *AppRouter) ModuleItemRoute(g *echo.Group) {
 	g.POST("/delete-module-item", r.moduleItemCtr.DeleteModuleItem, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 
 	// g.POST("/add-module-item-video", r.moduleItemCtr.AddModuleItemVideo, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+}
+
+func (r *AppRouter) LectureRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.POST("/get-lecture-list", r.lectureCtr.GetLectureList, isLoggedIn, r.userMw.InitUserProfile)
+
 }

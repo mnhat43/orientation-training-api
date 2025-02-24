@@ -49,3 +49,26 @@ func FindStringInArray(slice []string, val string) (int, bool) {
 	}
 	return -1, false
 }
+
+// func parseISO8601Duration(isoDuration string) string {
+// 	re := regexp.MustCompile(`PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?`)
+// 	matches := re.FindStringSubmatch(isoDuration)
+
+// 	hours, _ := strconv.Atoi(matches[1])
+// 	minutes, _ := strconv.Atoi(matches[2])
+// 	seconds, _ := strconv.Atoi(matches[3])
+
+// 	if hours > 0 {
+// 		return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+// 	}
+// 	return fmt.Sprintf("%02d:%02d", minutes, seconds)
+// }
+
+// // formatPublishedAt : Chuyển đổi ISO 8601 thành yyyy/MM/dd
+// func formatPublishedAt(isoDate string) (string, error) {
+// 	parsedTime, err := time.Parse(time.RFC3339, isoDate)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return parsedTime.Format("2006/01/02"), nil
+// }

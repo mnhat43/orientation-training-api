@@ -113,6 +113,7 @@ func main() {
 	router.CourseRoute(e.Group("/course"))
 	router.ModuleItemRoute(e.Group("/module-item"))
 	router.ModuleRoute(e.Group("/module"))
+	router.LectureRoute(e.Group("/lecture"))
 	// router.AdminRouter(e.Group("/admin"))
 
 	go func() {
