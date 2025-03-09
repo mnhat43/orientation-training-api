@@ -29,8 +29,7 @@ var once sync.Once
 
 func Init(logger echo.Logger) *pg.DB {
 	once.Do(func() {
-		err := godotenv.Load("../../.env")
-		// err := godotenv.Load(".env")
+		err := godotenv.Load(".env")
 		if err != nil {
 			logger.Error("Error loading .env file (godotenv)")
 		}

@@ -15,7 +15,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -29,16 +28,16 @@ func initializeDatabase() {
 	password := os.Getenv("POSTGRES_PASSWORD")
 	dbName := os.Getenv("POSTGRES_DB")
 
-	// pwd, _ := os.Getwd()
-	// sourceURL := "file:///" + pwd + "/internal/platform/db/migrations"
-	// sourceURL := "file://../../internal/platform/db/migrations"
-	sourceURL := "file://../../internal/platform/db/"
-
+	pwd, _ := os.Getwd()
+	sourceURL := "file:///" + pwd + "/internal/platform/db/migrations"
 	databaseURL := "postgres://" + user + ":" + password + "@" + host + ":" + port + "/" + dbName + "?sslmode=disable"
 
-	// if os.Getenv("ENV") != "dev" {
-	// 	databaseURL = "postgres://" + user + ":" + password + "@/" + dbName + "?host=/cloudsql/" + host
-	// }
+	if os.Getenv("ENV") != "dev" {
+		// ref: https://github.com/golang-migrate/migrate/issues/275#issuecomment-523469298
+		databaseURL = "postgres://" + user + ":" + password + "@/" + dbName + "?host=/cloudsql/" + host
+	}
+
+	log.Info("databaseURL: ", databaseURL)
 
 	log.Info("==> MIGRATION: RUN")
 	m, err := migrate.New(sourceURL, databaseURL)
@@ -56,15 +55,10 @@ func initializeDatabase() {
 
 func main() {
 
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
 	e := echo.New()
-	// log.Info("==> initializeDatabase: Start init !!!")
-	// initializeDatabase()
-	// log.Info("==> initializeDatabase: End init !!!")
+	log.Info("==> initializeDatabase: Start init !!!")
+	initializeDatabase()
+	log.Info("==> initializeDatabase: End init !!!")
 
 	if os.Getenv("ENV") != "prod" {
 		e.Debug = true
