@@ -1,19 +1,10 @@
 package requestparams
 
-import "mime/multipart"
-
 type CreateCourseParams struct {
-	Title       string                `json:"title" form:"course_title" valid:"required"`
-	Description string                `json:"description" form:"course_description"`
-	Thumbnail   *multipart.FileHeader `json:"thumbnail" form:"course_thumbnail"` // Changed to FileHeader for file upload
-	CreatedBy   int                   `json:"created_by" form:"created_by" valid:"required"`
-}
-
-type CreateCourseDBParams struct {
-	Title       string `json:"title" form:"course_title" valid:"required"`
-	Description string `json:"description" form:"course_description"`
-	Thumbnail   string `json:"thumbnail" form:"course_thumbnail"`
-	CreatedBy   int    `json:"created_by" form:"created_by" valid:"required"`
+	Title       string `json:"title" valid:"required"`
+	Description string `json:"description"`
+	Thumbnail   string `json:"thumbnail"`
+	CreatedBy   int    `json:"created_by" valid:"required"`
 }
 
 type UpdateCourseParams struct {

@@ -6,6 +6,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
+	cld "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/youtube"
 
 	valid "github.com/asaskevich/govalidator"
@@ -19,10 +20,11 @@ type LectureController struct {
 	ModuleRepo     rp.ModuleRepository
 	ModuleItemRepo rp.ModuleItemRepository
 	CourseRepo     rp.CourseRepository
+	Cloud          cld.StorageUtility
 }
 
-func NewLectureController(logger echo.Logger, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, courseRepo rp.CourseRepository) (ctr *LectureController) {
-	ctr = &LectureController{cm.BaseController{}, moduleRepo, moduleItemRepo, courseRepo}
+func NewLectureController(logger echo.Logger, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, courseRepo rp.CourseRepository, cloud cld.StorageUtility) (ctr *LectureController) {
+	ctr = &LectureController{cm.BaseController{}, moduleRepo, moduleItemRepo, courseRepo, cloud}
 	ctr.Init(logger)
 	return
 }
@@ -67,25 +69,49 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 
 	lectureList := []map[string]interface{}{}
 	for _, item := range moduleItems {
-		videoID := item.Resource
+		if item.ItemType == "video" {
+			videoID := item.Resource
 
-		ytService := youtube.NewYouTubeService()
+			ytService := youtube.NewYouTubeService()
 
-		videoInfo, err := ytService.GetVideoDetails(videoID)
-		if err != nil {
-			ctr.Logger.Errorf("Failed to fetch video details for video ID %s: %v", videoID, err)
-			continue
+			videoInfo, err := ytService.GetVideoDetails(videoID)
+			if err != nil {
+				ctr.Logger.Errorf("Failed to fetch video details for video ID %s: %v", videoID, err)
+				continue
+			}
+
+			lectureData := map[string]interface{}{
+				"id":          item.ID,
+				"itemType":    item.ItemType,
+				"title":       item.Title,
+				"videoId":     videoID,
+				"thumbnail":   videoInfo.ThumbnailURL,
+				"duration":    videoInfo.Duration,
+				"publishedAt": videoInfo.PublishedAt,
+			}
+			lectureList = append(lectureList, lectureData)
+		} else if item.ItemType == "file" {
+			var byteArr []byte
+			if item.Resource != "" {
+				byteArr, err = ctr.Cloud.GetFileByFileName(item.Resource, cf.FileFolderGCS)
+
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+						Status:  cf.FailResponseCode,
+						Message: "System Error when download File from GCS",
+					})
+				}
+			}
+
+			lectureData := map[string]interface{}{
+				"id":       item.ID,
+				"itemType": item.ItemType,
+				"title":    item.Title,
+				"file":     byteArr,
+			}
+			lectureList = append(lectureList, lectureData)
 		}
 
-		lectureData := map[string]interface{}{
-			"id":          item.ID,
-			"title":       item.Title,
-			"videoId":     videoID,
-			"thumbnail":   videoInfo.ThumbnailURL,
-			"duration":    videoInfo.Duration,
-			"publishedAt": videoInfo.PublishedAt,
-		}
-		lectureList = append(lectureList, lectureData)
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{

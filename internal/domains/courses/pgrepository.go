@@ -47,23 +47,23 @@ func (repo *PgCourseRepository) GetCourses(courseListParams *param.CourseListPar
 // SaveCourse : insert data to course
 // Params : orgID, param.CreateCourseParams
 // Returns : return object of record that 've just been inserted
-func (repo *PgCourseRepository) SaveCourse(createCourseDBParams *param.CreateCourseDBParams, userCourseRepo rp.UserCourseRepository) (m.Course, error) {
+func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCourseParams, userCourseRepo rp.UserCourseRepository) (m.Course, error) {
 	course := m.Course{}
 	err := repo.DB.RunInTransaction(func(tx *pg.Tx) error {
 		var transErr error
 		course, transErr = repo.InsertCourseWithTx(
 			tx,
-			createCourseDBParams.Title,
-			createCourseDBParams.Description,
-			createCourseDBParams.Thumbnail,
-			createCourseDBParams.CreatedBy,
+			createCourseParams.Title,
+			createCourseParams.Description,
+			createCourseParams.Thumbnail,
+			createCourseParams.CreatedBy,
 		)
 		if transErr != nil {
 			repo.Logger.Error(transErr)
 			return transErr
 		}
 
-		transErr = userCourseRepo.InsertUserCourseWithTx(tx, createCourseDBParams.CreatedBy, course.ID)
+		transErr = userCourseRepo.InsertUserCourseWithTx(tx, createCourseParams.CreatedBy, course.ID)
 		if transErr != nil {
 			repo.Logger.Error(transErr)
 			return transErr
@@ -157,10 +157,3 @@ func (repo *PgCourseRepository) DeleteCourse(courseID int) error {
 
 	return err
 }
-
-// func (r *PgCourseRepository) GetCourseDetail(courseID string) (m.CourseDetail, error) {
-
-// 	// Implement the method logic here
-
-// 	return m.CourseDetail{}, nil
-// }

@@ -1,10 +1,8 @@
 package cloud
 
-import "io"
-
 // StorageUtility interface
 type StorageUtility interface {
-	GetFileByFileName(fileName string, directoryCloud string) string
-	UploadFileToCloud(file io.Reader, fileName string, directoryCloud string) error
+	GetFileByFileName(fileName string, directoryCloud string) ([]byte, error)
+	UploadFileToCloud(file string, fileName string, directoryCloud string) error
 	DeleteFileCloud(fileName string, directoryCloud string) error
 }

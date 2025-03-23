@@ -8,7 +8,8 @@ import (
 	md "orientation-training-api/internal/domains/modules"
 	uc "orientation-training-api/internal/domains/usercourse"
 	u "orientation-training-api/internal/domains/users"
-	cld "orientation-training-api/internal/platform/cloud"
+
+	gc "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/utils"
 
 	"github.com/labstack/echo/v4"
@@ -27,7 +28,7 @@ type AppRouter struct {
 	// adminCtr *ad.Controller
 
 	userMw *u.UserMiddleware
-	cld    *cld.CloudinaryStorage
+	gcs    *gc.GcsStorage
 }
 
 func NewAppRouter(logger echo.Logger) (r *AppRouter) {
@@ -38,15 +39,15 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	ucRepo := uc.NewPgUserCourseRepository(logger)
 	// adminRepo := ad.NewPgAdminRepository(logger)
 
-	cldStorage := cld.NewCloudinaryStorage(logger)
+	gcsStorage := gc.NewGcsStorage(logger)
 
 	r = &AppRouter{
 		authCtr:       auth.NewAuthController(logger, userRepo),
 		userCtr:       u.NewUserController(logger, userRepo),
-		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, cldStorage),
+		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, gcsStorage),
 		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
-		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, cldStorage),
-		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo),
+		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
+		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, gcsStorage),
 
 		// adminCtr: ad.NewAdminController(),
 

@@ -8,7 +8,9 @@ import (
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
 	cld "orientation-training-api/internal/platform/cloud"
+	"orientation-training-api/internal/platform/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	valid "github.com/asaskevich/govalidator"
@@ -93,46 +95,39 @@ func (ctr *ModuleItemController) GetModuleItemList(c echo.Context) error {
 // Params : echo.Context
 // Returns : return error
 func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
-	moduleId, err := strconv.Atoi(c.FormValue("module_id"))
-	if err != nil || moduleId <= 0 {
-		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+	createModuleItemParams := new(param.CreateModuleItemParams)
+
+	if err := c.Bind(createModuleItemParams); err != nil {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
-			Message: "Invalid module_id",
+			Message: "Invalid Params",
+			Data:    err,
 		})
 	}
 
-	itemType := c.FormValue("item_type")
-	if itemType == "" || (itemType != "video" && itemType != "file") {
+	if _, err := valid.ValidateStruct(createModuleItemParams); err != nil {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	if createModuleItemParams.ItemType == "" || (createModuleItemParams.ItemType != "video" && createModuleItemParams.ItemType != "file") {
 		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
 			Message: "Invalid item_type. Allowed values: video, file",
 		})
 	}
 
-	title := c.FormValue("title")
-	if title == "" {
-		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Title is required",
-		})
-	}
-
-	createModuleItemParams := &param.CreateModuleItemParams{
-		Title:    title,
-		ItemType: itemType,
-		ModuleID: moduleId,
-	}
-
-	if itemType == "video" {
-		videoURL := c.FormValue("url")
-		if !valid.IsURL(videoURL) {
+	if createModuleItemParams.ItemType == "video" {
+		if !valid.IsURL(createModuleItemParams.Resource) {
 			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
 				Message: "Invalid URL format for video",
 			})
 		}
 
-		parsedURL, err := url.Parse(videoURL)
+		parsedURL, err := url.Parse(createModuleItemParams.Resource)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
@@ -152,36 +147,48 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 		createModuleItemParams.Resource = videoId
 	}
 
-	if itemType == "file" {
-		uploadedFile, err := c.FormFile("file")
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+	if createModuleItemParams.ItemType == "file" {
+		parts := strings.SplitN(createModuleItemParams.Resource, ",", 2)
+		if len(parts) != 2 {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
-				Message: "File is required for item_type=file",
+				Message: "Invalid File Format",
 			})
 		}
 
-		if uploadedFile.Size > 10*1024*1024 {
-			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+		mimeType := parts[0]
+		base64Data := parts[1]
+
+		formatFile := ""
+		if strings.HasPrefix(mimeType, "data:application/") {
+			formatFile = strings.TrimPrefix(mimeType, "data:application/")
+			formatFile = strings.Split(formatFile, ";")[0]
+		}
+
+		if formatFile == "" {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
-				Message: "File size exceeds limit (10MB)",
+				Message: "Invalid File Format",
 			})
 		}
 
-		src, err := uploadedFile.Open()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+		if _, check := utils.FindStringInArray(cf.AllowFormatFileList, formatFile); !check {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
-				Message: "Failed to open uploaded file",
+				Message: "File not allowed",
 			})
 		}
-		defer src.Close()
 
 		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
-		fileName := strconv.Itoa(moduleId) + "_" + strconv.Itoa(millisecondTimeNow)
+		fileName := strconv.Itoa(createModuleItemParams.ModuleID) + "_" + strconv.Itoa(millisecondTimeNow)
 
-		err = ctr.cloud.UploadFileToCloud(src, fileName, cf.FileFolderCLD)
+		err := ctr.cloud.UploadFileToCloud(
+			base64Data,
+			fileName,
+			cf.FileFolderGCS,
+		)
 		if err != nil {
+			ctr.Logger.Error(err)
 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
 				Message: "Failed to upload file to cloud",
@@ -193,6 +200,7 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 
 	savedItem, err := ctr.ModuleItemRepo.SaveModuleItem(createModuleItemParams)
 	if err != nil {
+		ctr.Logger.Error(err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
 			Message: "Failed to save Module Item to database",
@@ -245,7 +253,7 @@ func (ctr *ModuleItemController) DeleteModuleItem(c echo.Context) error {
 	}
 
 	if moduleItem.ItemType == "file" {
-		err := ctr.cloud.DeleteFileCloud(moduleItem.Resource, cf.FileFolderCLD)
+		err := ctr.cloud.DeleteFileCloud(moduleItem.Resource, cf.FileFolderGCS)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 				Status:  cf.FailResponseCode,

@@ -71,7 +71,7 @@ func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int, i
 	moduleItems := []m.ModuleItem{}
 	err := repo.DB.Model(&moduleItems).
 		Where("module_id IN (?)", pg.In(moduleIDs)).
-		Where("item_type = ?", itemType).
+		// Where("item_type = ?", itemType).
 		Where("deleted_at is null").
 		Select()
 	if err != nil {

@@ -8,3 +8,5 @@
 .vscode
  vendor/
 configs/gcloud/firebaseServiceAccount.json
+
+configs/gcloud/

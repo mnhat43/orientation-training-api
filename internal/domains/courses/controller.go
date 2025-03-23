@@ -1,14 +1,15 @@
 package courses
 
 import (
-	"io"
+	"fmt"
 	"net/http"
 	cf "orientation-training-api/configs"
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
-	cld "orientation-training-api/internal/platform/cloud"
-	"strconv"
+	gc "orientation-training-api/internal/platform/cloud"
+	"orientation-training-api/internal/platform/utils"
+	"strings"
 	"time"
 
 	valid "github.com/asaskevich/govalidator"
@@ -21,10 +22,10 @@ type CourseController struct {
 
 	CourseRepo     rp.CourseRepository
 	UserCourseRepo rp.UserCourseRepository
-	cloud          cld.StorageUtility
+	cloud          gc.StorageUtility
 }
 
-func NewCourseController(logger echo.Logger, courseRepo rp.CourseRepository, userCourse rp.UserCourseRepository, cloud cld.StorageUtility) (ctr *CourseController) {
+func NewCourseController(logger echo.Logger, courseRepo rp.CourseRepository, userCourse rp.UserCourseRepository, cloud gc.StorageUtility) (ctr *CourseController) {
 	ctr = &CourseController{cm.BaseController{}, courseRepo, userCourse, cloud}
 	ctr.Init(logger)
 	return
@@ -81,16 +82,20 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 
 	listCourseResponse := []map[string]interface{}{}
 	for _, course := range courses {
-		var secureURL interface{}
+		var base64Img []byte = nil
 		if course.Thumbnail != "" {
-			secureURL = ctr.cloud.GetFileByFileName(course.Thumbnail, cf.ThumbnailFolderCLD)
+			base64Img, err = ctr.cloud.GetFileByFileName(course.Thumbnail, cf.ThumbnailFolderGCS)
+			if err != nil {
+				ctr.Logger.Error(err)
+				base64Img = nil
+			}
 		}
 
 		itemDataResponse := map[string]interface{}{
 			"course_id":          course.ID,
 			"course_title":       course.Title,
 			"course_description": course.Description,
-			"course_thumbnail":   secureURL,
+			"course_thumbnail":   base64Img,
 			"created_by":         course.CreatedBy,
 			"created_at":         course.CreatedAt.Format(cf.FormatDateDisplay),
 			"updated_at":         course.UpdatedAt.Format(cf.FormatDateDisplay),
@@ -113,22 +118,16 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 // Params : echo.Context
 // Returns : return error
 func (ctr *CourseController) AddCourse(c echo.Context) error {
-	title := c.FormValue("course_title")
-	description := c.FormValue("course_description")
-	createdBy, err := strconv.Atoi(c.FormValue("created_by"))
+	createCourseParams := new(param.CreateCourseParams)
 
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, cf.JsonResponse{
+	if err := c.Bind(createCourseParams); err != nil {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
-			Message: "Invalid created_by",
+			Message: "Invalid Params",
+			Data:    err,
 		})
 	}
 
-	createCourseParams := &param.CreateCourseParams{
-		Title:       title,
-		Description: description,
-		CreatedBy:   createdBy,
-	}
 	if _, err := valid.ValidateStruct(createCourseParams); err != nil {
 		return c.JSON(http.StatusOK, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
@@ -136,41 +135,54 @@ func (ctr *CourseController) AddCourse(c echo.Context) error {
 		})
 	}
 
-	createCourseDBParams := &param.CreateCourseDBParams{
-		Title:       title,
-		Description: description,
-		CreatedBy:   createdBy,
-	}
-
-	thumbnailFile, err := c.FormFile("course_thumbnail")
-	if err == nil {
-		src, err := thumbnailFile.Open()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+	if createCourseParams.Thumbnail != "" {
+		parts := strings.SplitN(createCourseParams.Thumbnail, ",", 2)
+		if len(parts) != 2 {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
-				Message: "Error opening thumbnail file",
+				Message: "Invalid Thumbnail Format",
 			})
 		}
-		defer src.Close()
 
-		src.Seek(0, io.SeekStart)
+		mimeType := parts[0]
+		base64Data := parts[1]
+
+		formatImageThumbnail := ""
+		if strings.HasPrefix(mimeType, "data:image/") {
+			formatImageThumbnail = strings.TrimPrefix(mimeType, "data:image/")
+			formatImageThumbnail = strings.Split(formatImageThumbnail, ";")[0]
+		}
+
+		if formatImageThumbnail == "" {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Image Format",
+			})
+		}
+
+		if _, check := utils.FindStringInArray(cf.AllowFormatImageList, formatImageThumbnail); !check {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "The Thumbnail field must be an image",
+			})
+		}
 
 		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
-		nameThumbnail := strconv.Itoa(createCourseParams.CreatedBy) + "_" + strconv.Itoa(millisecondTimeNow)
+		nameThumbnail := fmt.Sprintf("%d_%d.%s", createCourseParams.CreatedBy, millisecondTimeNow, formatImageThumbnail)
 
-		err = ctr.cloud.UploadFileToCloud(src, nameThumbnail, cf.ThumbnailFolderCLD)
-
+		err := ctr.cloud.UploadFileToCloud(base64Data, nameThumbnail, cf.ThumbnailFolderGCS)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			ctr.Logger.Error(err)
+			return c.JSON(http.StatusOK, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
 				Message: "Upload thumbnail error",
 			})
 		}
 
-		createCourseDBParams.Thumbnail = nameThumbnail
+		createCourseParams.Thumbnail = nameThumbnail
 	}
 
-	course, err := ctr.CourseRepo.SaveCourse(createCourseDBParams, ctr.UserCourseRepo)
+	course, err := ctr.CourseRepo.SaveCourse(createCourseParams, ctr.UserCourseRepo)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
@@ -178,17 +190,10 @@ func (ctr *CourseController) AddCourse(c echo.Context) error {
 		})
 	}
 
-	courseResponse := map[string]interface{}{
-		"course_id":          course.ID,
-		"course_title":       course.Title,
-		"course_thumbnail":   course.Thumbnail,
-		"course_description": course.Description,
-	}
-
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Course Created Successfully",
-		Data:    courseResponse,
+		Data:    course,
 	})
 }
 
@@ -223,11 +228,11 @@ func (ctr *CourseController) DeleteCourse(c echo.Context) error {
 	}
 
 	if course.Thumbnail != "" {
-		err := ctr.cloud.DeleteFileCloud(course.Thumbnail, cf.ThumbnailFolderCLD)
+		err := ctr.cloud.DeleteFileCloud(course.Thumbnail, cf.ThumbnailFolderGCS)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
-				Message: "System Error: Failed to delete thumbnail from Cloudinary",
+				Message: "System Error: Failed to delete thumbnail from cloud",
 			})
 		}
 	}
@@ -253,62 +258,3 @@ func (ctr *CourseController) DeleteCourse(c echo.Context) error {
 		Message: "Deleted",
 	})
 }
-
-// func (ctr *CourseController) GetCourseDetail(c echo.Context) error {
-// 	courseIDParam := new(param.CourseIDParam)
-// 	if err := c.Bind(courseIDParam); err != nil {
-// 		return c.JSON(http.StatusOK, cf.JsonResponse{
-// 			Status:  cf.FailResponseCode,
-// 			Message: "Invalid Params",
-// 			Data:    err,
-// 		})
-// 	}
-
-// 	if _, err := valid.ValidateStruct(courseIDParam); err != nil {
-// 		return c.JSON(http.StatusOK, cf.JsonResponse{
-// 			Status:  cf.FailResponseCode,
-// 			Message: err.Error(),
-// 		})
-// 	}
-
-// 	course, er := ctr.CourseRepo.GetCourseByID(courseIDParam.CourseID)
-
-// 	if er != nil {
-// 		return c.JSON(http.StatusOK, cf.JsonResponse{
-// 			Status:  cf.FailResponseCode,
-// 			Message: "Course not found",
-// 			Data:    er,
-// 		})
-// 	}
-
-// 	if course.Thumbnail != "" {
-// 		err := ctr.cloud.DeleteFileCloud(course.Thumbnail, cf.ThumbnailFolderCLD)
-// 		if err != nil {
-// 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-// 				Status:  cf.FailResponseCode,
-// 				Message: "System Error: Failed to delete thumbnail from Cloudinary",
-// 			})
-// 		}
-// 	}
-
-// 	err := ctr.UserCourseRepo.DeleteByCourseId(courseIDParam.CourseID)
-// 	if err != nil {
-// 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-// 			Status:  cf.FailResponseCode,
-// 			Message: "System Error",
-// 		})
-// 	}
-
-// 	err = ctr.CourseRepo.DeleteCourse(courseIDParam.CourseID)
-// 	if err != nil {
-// 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-// 			Status:  cf.FailResponseCode,
-// 			Message: "System Error",
-// 		})
-// 	}
-
-// 	return c.JSON(http.StatusOK, cf.JsonResponse{
-// 		Status:  cf.SuccessResponseCode,
-// 		Message: "Deleted",
-// 	})
-// }
