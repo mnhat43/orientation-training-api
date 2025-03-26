@@ -67,11 +67,10 @@ func (repo *PgModuleItemRepository) DeleteModuleItem(moduleItemID int) error {
 	return err
 }
 
-func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int, itemType string) ([]m.ModuleItem, error) {
+func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int) ([]m.ModuleItem, error) {
 	moduleItems := []m.ModuleItem{}
 	err := repo.DB.Model(&moduleItems).
 		Where("module_id IN (?)", pg.In(moduleIDs)).
-		// Where("item_type = ?", itemType).
 		Where("deleted_at is null").
 		Select()
 	if err != nil {

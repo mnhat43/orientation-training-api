@@ -8,6 +8,7 @@ import (
 	param "orientation-training-api/internal/interfaces/requestparams"
 	cld "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/youtube"
+	"os"
 
 	valid "github.com/asaskevich/govalidator"
 
@@ -49,6 +50,18 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		})
 	}
 
+	moduleListParams := &param.ModuleListParams{
+		CourseID: lectureListParams.CourseID,
+	}
+	modules, _, err := ctr.ModuleRepo.GetModules(moduleListParams)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch modules: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch modules for the course",
+		})
+	}
+
 	moduleIDs, err := ctr.ModuleRepo.GetModuleIDsByCourseID(lectureListParams.CourseID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch module IDs: %v", err)
@@ -58,7 +71,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		})
 	}
 
-	moduleItems, err := ctr.ModuleItemRepo.GetModuleItemsByModuleIDs(moduleIDs, "video")
+	moduleItems, err := ctr.ModuleItemRepo.GetModuleItemsByModuleIDs(moduleIDs)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch module items: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
@@ -67,8 +80,20 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		})
 	}
 
-	lectureList := []map[string]interface{}{}
+	lectureList := map[string][]map[string]interface{}{}
+	for _, module := range modules {
+		lectureList[module.Title] = []map[string]interface{}{}
+	}
+
 	for _, item := range moduleItems {
+		moduleTitle := ""
+		for _, module := range modules {
+			if module.ID == item.ModuleID {
+				moduleTitle = module.Title
+				break
+			}
+		}
+
 		if item.ItemType == "video" {
 			videoID := item.Resource
 
@@ -89,29 +114,21 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 				"duration":    videoInfo.Duration,
 				"publishedAt": videoInfo.PublishedAt,
 			}
-			lectureList = append(lectureList, lectureData)
+			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		} else if item.ItemType == "file" {
-			var byteArr []byte
+			var filePath string
 			if item.Resource != "" {
-				byteArr, err = ctr.Cloud.GetFileByFileName(item.Resource, cf.FileFolderGCS)
-
-				if err != nil {
-					return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-						Status:  cf.FailResponseCode,
-						Message: "System Error when download File from GCS",
-					})
-				}
+				filePath = "https://storage.cloud.google.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource
 			}
 
 			lectureData := map[string]interface{}{
-				"id":       item.ID,
-				"itemType": item.ItemType,
-				"title":    item.Title,
-				"file":     byteArr,
+				"id":        item.ID,
+				"itemType":  item.ItemType,
+				"title":     item.Title,
+				"file_path": filePath,
 			}
-			lectureList = append(lectureList, lectureData)
+			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		}
-
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
