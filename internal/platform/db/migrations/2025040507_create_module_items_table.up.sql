@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS module_items (
+    id SERIAL PRIMARY KEY,
+	title VARCHAR(100) NOT NULL,
+	item_type VARCHAR(100) NOT NULL,
+	resource VARCHAR(100) NOT NULL,
+    module_id INT NOT NULL,
+    position INT DEFAULT 1,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
