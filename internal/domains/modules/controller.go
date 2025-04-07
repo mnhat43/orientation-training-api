@@ -152,13 +152,23 @@ func (ctr *ModuleController) GetModuleDetails(c echo.Context) error {
 			})
 		}
 
+		var moduleItemResponse []map[string]interface{}
+
+		for _, moduleItem := range moduleListItem {
+			moduleItemResponse = append(moduleItemResponse, map[string]interface{}{
+				"id":        moduleItem.ID,
+				"title":     moduleItem.Title,
+				"item_type": moduleItem.ItemType,
+				"resource":  moduleItem.Resource,
+				"position":  moduleItem.Position,
+			})
+		}
+
 		itemDataResponse := map[string]interface{}{
-			"module_id":    module.ID,
-			"module_title": module.Title,
-			"courseId":     module.CourseID,
-			"module_items": moduleListItem,
-			"created_at":   module.CreatedAt.Format(cf.FormatDateDisplay),
-			"updated_at":   module.UpdatedAt.Format(cf.FormatDateDisplay),
+			"id":    module.ID,
+			"title": module.Title,
+			"position": module.Position,
+			"module_items": moduleItemResponse,
 		}
 
 		listModuleResponse = append(listModuleResponse, itemDataResponse)
@@ -197,9 +207,11 @@ func (ctr *ModuleController) AddModule(c echo.Context) error {
 
 	module, err := ctr.ModuleRepo.SaveModule(createModuleParams)
 	if err != nil {
+		ctr.Logger.Errorf("Error creating module: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
 			Message: "Create Module Failed",
+			Data:    err.Error(),
 		})
 	}
 

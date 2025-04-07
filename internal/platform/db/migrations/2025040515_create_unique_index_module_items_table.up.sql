@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX unique_module_position ON module_items(module_id, position) WHERE deleted_at IS NULL;

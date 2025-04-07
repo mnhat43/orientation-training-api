@@ -10,4 +10,5 @@ type Module struct {
 	ID       int    `pg:",pk"`
 	Title    string `pg:",notnull"`
 	CourseID int    `pg:",fk:course_id"`
+	Position int    `pg:",notnull"`
 }

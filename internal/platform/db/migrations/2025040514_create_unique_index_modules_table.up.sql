@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX unique_course_position ON modules(course_id, position) WHERE deleted_at IS NULL;

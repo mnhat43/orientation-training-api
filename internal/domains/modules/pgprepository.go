@@ -26,7 +26,7 @@ func (repo *PgModuleRepository) GetModules(moduleListParams *param.ModuleListPar
 	}
 	queryObj.Where("course_id = ?", moduleListParams.CourseID)
 	queryObj.Offset((moduleListParams.CurrentPage - 1) * moduleListParams.RowPerPage)
-	queryObj.Order("created_at DESC")
+	queryObj.Order("position DESC")
 	queryObj.Limit(moduleListParams.RowPerPage)
 	totalRow, err := queryObj.SelectAndCount()
 	return modules, totalRow, err
@@ -39,6 +39,7 @@ func (repo *PgModuleRepository) SaveModule(createModuleParams *param.CreateModul
 	module := m.Module{
 		Title:    createModuleParams.Title,
 		CourseID: createModuleParams.CourseID,
+		Position: createModuleParams.Position,
 	}
 	err := repo.DB.Insert(&module)
 	return module, err

@@ -3,6 +3,7 @@ package requestparams
 type CreateModuleParams struct {
 	Title    string `json:"title" form:"module_title" valid:"required"`
 	CourseID int    `json:"course_id" form:"course_id" valid:"required"`
+	Position int    `json:"position" form:"position" valid:"required"`
 }
 
 type ModuleListParams struct {
@@ -13,5 +14,5 @@ type ModuleListParams struct {
 }
 
 type ModuleIDParam struct {
-	ModuleID int `json:"module_id" valid:"required"`
+	ModuleID int `json:"id" valid:"required"`
 }
