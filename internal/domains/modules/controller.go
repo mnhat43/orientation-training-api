@@ -161,6 +161,7 @@ func (ctr *ModuleController) GetModuleDetails(c echo.Context) error {
 				"item_type": moduleItem.ItemType,
 				"resource":  moduleItem.Resource,
 				"position":  moduleItem.Position,
+				"required_time":  moduleItem.RequiredTime,
 			})
 		}
 

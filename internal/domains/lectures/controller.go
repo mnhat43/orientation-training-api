@@ -107,12 +107,15 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 
 			lectureData := map[string]interface{}{
 				"id":          item.ID,
-				"itemType":    item.ItemType,
 				"title":       item.Title,
+				"item_type":  item.ItemType,
+				"position":  item.Position,
+				"module_id":  item.ModuleID,
 				"videoId":     videoID,
 				"thumbnail":   videoInfo.ThumbnailURL,
 				"duration":    videoInfo.Duration,
 				"publishedAt": videoInfo.PublishedAt,
+				"required_time": item.RequiredTime,
 			}
 			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		} else if item.ItemType == "file" {
@@ -122,10 +125,13 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 			}
 
 			lectureData := map[string]interface{}{
-				"id":        item.ID,
-				"itemType":  item.ItemType,
-				"title":     item.Title,
+				"id":          item.ID,
+				"title":       item.Title,
+				"item_type":  item.ItemType,
+				"position":  item.Position,
+				"module_id":  item.ModuleID,
 				"file_path": filePath,
+				"required_time": item.RequiredTime,
 			}
 			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		}

@@ -11,6 +11,7 @@ type ModuleItem struct {
 	Title    string `pg:",notnull"`
 	ItemType string `pg:",notnull"`
 	Resource string `pg:",notnull"`
+	RequiredTime int `pg:",notnull"`
 	ModuleID int    `pg:",fk:module_id"`
 	Position int    `pg:",notnull"`
 

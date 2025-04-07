@@ -9,6 +9,7 @@ import (
 	param "orientation-training-api/internal/interfaces/requestparams"
 	cld "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/utils"
+	"orientation-training-api/internal/platform/youtube"
 	"strconv"
 	"strings"
 	"time"
@@ -144,10 +145,20 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 			})
 		}
 
-		createModuleItemParams.Resource = videoId
-	}
+		ytService := youtube.NewYouTubeService()
+		videoInfo, err := ytService.GetVideoDetails(videoId)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Failed to fetch video details",
+			})
+		}
 
-	if createModuleItemParams.ItemType == "file" {
+		requiredTimeInSeconds := utils.CalculateRequiredTime(videoInfo.Duration)
+
+		createModuleItemParams.RequiredTime = requiredTimeInSeconds
+		createModuleItemParams.Resource = videoId
+	} else if createModuleItemParams.ItemType == "file" {
 		parts := strings.SplitN(createModuleItemParams.Resource, ",", 2)
 		if len(parts) != 2 {
 			return c.JSON(http.StatusOK, cf.JsonResponse{
@@ -209,10 +220,11 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 
 	moduleItemResponse := map[string]interface{}{
 		"id":        savedItem.ID,
-		"module_id": savedItem.ModuleID,
 		"type":      savedItem.ItemType,
 		"title":     savedItem.Title,
 		"resource":  savedItem.Resource,
+		"position":  savedItem.Position,
+		"required_time":  savedItem.RequiredTime,
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{

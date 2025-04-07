@@ -26,7 +26,6 @@ func (repo *PgModuleRepository) GetModules(moduleListParams *param.ModuleListPar
 	}
 	queryObj.Where("course_id = ?", moduleListParams.CourseID)
 	queryObj.Offset((moduleListParams.CurrentPage - 1) * moduleListParams.RowPerPage)
-	queryObj.Order("position DESC")
 	queryObj.Limit(moduleListParams.RowPerPage)
 	totalRow, err := queryObj.SelectAndCount()
 	return modules, totalRow, err

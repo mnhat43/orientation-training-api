@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -48,6 +50,24 @@ func FindStringInArray(slice []string, val string) (int, bool) {
 		}
 	}
 	return -1, false
+}
+
+// Hàm tính toán thời gian required_time từ video duration
+func CalculateRequiredTime(duration string) int {
+	parts := strings.Split(duration, ":")
+	var totalSeconds int
+	
+	for i, unit := range []int{3600, 60, 1} {
+		if i < len(parts) {
+			value, _ := strconv.Atoi(parts[i])
+			totalSeconds += value * unit
+		}
+	}
+
+	// Tính 70% thời gian
+	requiredSeconds := int(float64(totalSeconds) * 0.7)
+
+	return requiredSeconds
 }
 
 // func parseISO8601Duration(isoDuration string) string {

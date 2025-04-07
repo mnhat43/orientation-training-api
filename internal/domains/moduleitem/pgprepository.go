@@ -27,7 +27,6 @@ func (repo *PgModuleItemRepository) GetModuleItems(moduleItemListParams *param.M
 	}
 	queryObj.Where("module_id = ?", moduleItemListParams.ModuleID)
 	queryObj.Offset((moduleItemListParams.CurrentPage - 1) * moduleItemListParams.RowPerPage)
-	queryObj.Order("position DESC")
 	queryObj.Limit(moduleItemListParams.RowPerPage)
 	totalRow, err := queryObj.SelectAndCount()
 	return moduleItems, totalRow, err
@@ -41,6 +40,7 @@ func (repo *PgModuleItemRepository) SaveModuleItem(createModuleItemParams *param
 		Title:    createModuleItemParams.Title,
 		ItemType: createModuleItemParams.ItemType,
 		Resource: createModuleItemParams.Resource,
+		RequiredTime: createModuleItemParams.RequiredTime,
 		ModuleID: createModuleItemParams.ModuleID,
 	}
 

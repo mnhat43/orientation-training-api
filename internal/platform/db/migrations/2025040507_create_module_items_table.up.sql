@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS module_items (
 	resource VARCHAR(100) NOT NULL,
     module_id INT NOT NULL,
     position INT DEFAULT 1,
+    required_time INT NOT NULL,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
