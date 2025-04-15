@@ -85,9 +85,14 @@ INSERT INTO module_items (id, title, item_type, resource, module_id, position, r
 (26,'Sử dụng Comments trong JavaScript','video','xRpXBEq6TOY',8,3,60,'2025-03-26 15:44:22.171347','2025-03-26 15:44:22.171347',NULL),
 (27,'Một số hàm built-in trong JavaScript','video','rSV33HGotgE',8,4,60,'2025-03-26 15:44:56.091325','2025-03-26 15:44:56.091325',NULL),
 (28,'  VN  Bỏ qua điều hướng Tìm kiếm     Tạo  6  Hình ảnh đại diện Làm quen với toán tử trong JavaScript','video','SZb-N7TfPlw',9,1,60,'2025-03-26 15:48:18.395063','2025-03-26 15:48:18.395063','2025-03-26 15:48:26.783096'),
-(29,'Làm quen với toán tử trong JavaScript','video','SZb-N7TfPlw',9,2,60,'2025-03-26 15:48:48.80639','2025-03-26 15:48:48.80639',NULL),
-(30,'Toán tử số học trong JavaScript','video','m_h7-dgKnMU',9,3,60,'2025-03-26 15:49:24.911648','2025-03-26 15:49:24.911648',NULL),
-(31,'Toán tử ++ -- với tiền tố & hậu tố (Prefix & Postfix) ','video','aM-DUx6Qnc8',9,4,60,'2025-03-26 15:49:51.333958','2025-03-26 15:49:51.333958',NULL),
-(32,' Toán tử gán trong JavaScript','video','ncRmjazgsE8',9,5,60,'2025-03-26 15:50:10.479047','2025-03-26 15:50:10.479047',NULL),
+(29,'Làm quen với toán tử trong JavaScript','video','SZb-N7TfPlw',9,1,60,'2025-03-26 15:48:48.80639','2025-03-26 15:48:48.80639',NULL),
+(30,'Toán tử số học trong JavaScript','video','m_h7-dgKnMU',9,2,60,'2025-03-26 15:49:24.911648','2025-03-26 15:49:24.911648',NULL),
+(31,'Toán tử ++ -- với tiền tố & hậu tố (Prefix & Postfix) ','video','aM-DUx6Qnc8',9,3,60,'2025-03-26 15:49:51.333958','2025-03-26 15:49:51.333958',NULL),
+(32,' Toán tử gán trong JavaScript','video','ncRmjazgsE8',9,4,60,'2025-03-26 15:50:10.479047','2025-03-26 15:50:10.479047',NULL),
 (33,'Hàm trong JavaScript','video','4g9ENVc2KLA',10,1,60,'2025-03-26 15:53:17.861411','2025-03-26 15:53:17.861411',NULL),
 (34,'Tham số trong hàm','video','jE6UPl17Nvo',10,2,60,'2025-03-26 15:53:47.596092','2025-03-26 15:53:47.596092',NULL)
+
+-- ------------------------------------------- user_progresses ---------------------------------------------
+INSERT INTO user_progress (user_id, course_id, module_position, module_item_position, completed, created_at, updated_at, deleted_at) VALUES 
+(1, 15, 2, 2, FALSE, '2025-04-10 00:00:00', '2025-04-10 00:00:00', NULL);
+(2, 14, 1, 1, FALSE, '2025-04-10 00:00:00', '2025-04-10 00:00:00', NULL);

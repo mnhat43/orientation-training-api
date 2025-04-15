@@ -102,12 +102,13 @@ func main() {
 	})
 
 	router := r.NewAppRouter(e.Logger)
-	router.UserRoute(e.Group("/api/user"))
+	router.UserRoute(e.Group("/user"))
 	router.AuthRoute(e.Group("/auth"))
 	router.CourseRoute(e.Group("/course"))
 	router.ModuleItemRoute(e.Group("/module-item"))
 	router.ModuleRoute(e.Group("/module"))
 	router.LectureRoute(e.Group("/lecture"))
+	router.UserProgressRoute(e.Group("/user-progress"))
 	// router.AdminRouter(e.Group("/admin"))
 
 	go func() {

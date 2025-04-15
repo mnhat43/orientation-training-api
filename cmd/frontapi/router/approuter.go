@@ -7,6 +7,7 @@ import (
 	mdi "orientation-training-api/internal/domains/moduleitem"
 	md "orientation-training-api/internal/domains/modules"
 	uc "orientation-training-api/internal/domains/usercourse"
+	up "orientation-training-api/internal/domains/userprogress"
 	u "orientation-training-api/internal/domains/users"
 
 	gc "orientation-training-api/internal/platform/cloud"
@@ -24,6 +25,7 @@ type AppRouter struct {
 	moduleItemCtr *mdi.ModuleItemController
 	ucCtr         *uc.UserCourseController
 	lectureCtr    *lec.LectureController
+	upCtr         *up.UserProgressController
 
 	// adminCtr *ad.Controller
 
@@ -37,6 +39,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	moduleRepo := md.NewPgModuleRepository(logger)
 	moduleItemRepo := mdi.NewPgModuleItemRepository(logger)
 	ucRepo := uc.NewPgUserCourseRepository(logger)
+	upRepo := up.NewPgUserProgressRepository(logger)
 	// adminRepo := ad.NewPgAdminRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
@@ -47,7 +50,8 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, gcsStorage),
 		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
-		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, gcsStorage),
+		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, gcsStorage),
+		upCtr:         up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo),
 
 		// adminCtr: ad.NewAdminController(),
 
@@ -63,7 +67,7 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 		SigningKey: []byte(keyTokenAuth),
 	})
 
-	g.GET("/getuser", r.userCtr.GetLoginUser, isLoggedIn)
+	g.GET("/profile", r.userCtr.GetLoginUser, isLoggedIn)
 
 }
 
@@ -127,4 +131,13 @@ func (r *AppRouter) LectureRoute(g *echo.Group) {
 
 	g.POST("/get-lecture-list", r.lectureCtr.GetLectureList, isLoggedIn, r.userMw.InitUserProfile)
 
+}
+
+func (r *AppRouter) UserProgressRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.POST("/update-user-progress", r.upCtr.UpdateUserProgress, isLoggedIn, r.userMw.InitUserProfile)
 }

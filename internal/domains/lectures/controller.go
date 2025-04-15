@@ -6,6 +6,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
+	m "orientation-training-api/internal/models"
 	cld "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/youtube"
 	"os"
@@ -18,19 +19,21 @@ import (
 type LectureController struct {
 	cm.BaseController
 
-	ModuleRepo     rp.ModuleRepository
-	ModuleItemRepo rp.ModuleItemRepository
-	CourseRepo     rp.CourseRepository
-	Cloud          cld.StorageUtility
+	ModuleRepo       rp.ModuleRepository
+	ModuleItemRepo   rp.ModuleItemRepository
+	CourseRepo       rp.CourseRepository
+	UserProgressRepo rp.UserProgressRepository
+	Cloud            cld.StorageUtility
 }
 
-func NewLectureController(logger echo.Logger, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, courseRepo rp.CourseRepository, cloud cld.StorageUtility) (ctr *LectureController) {
-	ctr = &LectureController{cm.BaseController{}, moduleRepo, moduleItemRepo, courseRepo, cloud}
+func NewLectureController(logger echo.Logger, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, courseRepo rp.CourseRepository, upRepo rp.UserProgressRepository, cloud cld.StorageUtility) (ctr *LectureController) {
+	ctr = &LectureController{cm.BaseController{}, moduleRepo, moduleItemRepo, courseRepo, upRepo, cloud}
 	ctr.Init(logger)
 	return
 }
 
 func (ctr *LectureController) GetLectureList(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
 	lectureListParams := new(param.LectureListParams)
 
 	if err := c.Bind(lectureListParams); err != nil {
@@ -49,6 +52,20 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 			Message: err.Error(),
 		})
 	}
+	getUserProgressParams := &param.GetUserProgressParams{
+		UserID:   userProfile.ID,
+		CourseID: lectureListParams.CourseID,
+	}
+	userProgress, err := ctr.UserProgressRepo.GetUserProgress(getUserProgressParams)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch user progress",
+		})
+	}
+
+	currentModulePosition, currentModuleItemPosition := userProgress.ModulePosition, userProgress.ModuleItemPosition
 
 	moduleListParams := &param.ModuleListParams{
 		CourseID: lectureListParams.CourseID,
@@ -80,6 +97,11 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		})
 	}
 
+	modulePositions := make(map[int]int)
+	for _, module := range modules {
+		modulePositions[module.ID] = module.Position
+	}
+
 	lectureList := map[string][]map[string]interface{}{}
 	for _, module := range modules {
 		lectureList[module.Title] = []map[string]interface{}{}
@@ -87,11 +109,20 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 
 	for _, item := range moduleItems {
 		moduleTitle := ""
+		modulePosition := 0
+
 		for _, module := range modules {
 			if module.ID == item.ModuleID {
 				moduleTitle = module.Title
+				modulePosition = module.Position
 				break
 			}
+		}
+
+		isUnlocked := false
+		if modulePosition < currentModulePosition ||
+			(modulePosition == currentModulePosition && item.Position <= currentModuleItemPosition) {
+			isUnlocked = true
 		}
 
 		if item.ItemType == "video" {
@@ -106,16 +137,18 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 			}
 
 			lectureData := map[string]interface{}{
-				"id":          item.ID,
-				"title":       item.Title,
-				"item_type":  item.ItemType,
-				"position":  item.Position,
-				"module_id":  item.ModuleID,
-				"videoId":     videoID,
-				"thumbnail":   videoInfo.ThumbnailURL,
-				"duration":    videoInfo.Duration,
-				"publishedAt": videoInfo.PublishedAt,
-				"required_time": item.RequiredTime,
+				"module_item_id":       item.ID,
+				"title":                item.Title,
+				"item_type":            item.ItemType,
+				"module_item_position": item.Position,
+				"module_id":            item.ModuleID,
+				"module_position":      modulePosition,
+				"videoId":              videoID,
+				"thumbnail":            videoInfo.ThumbnailURL,
+				"duration":             videoInfo.Duration,
+				"publishedAt":          videoInfo.PublishedAt,
+				"required_time":        item.RequiredTime,
+				"unlocked":             isUnlocked,
 			}
 			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		} else if item.ItemType == "file" {
@@ -125,13 +158,15 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 			}
 
 			lectureData := map[string]interface{}{
-				"id":          item.ID,
-				"title":       item.Title,
-				"item_type":  item.ItemType,
-				"position":  item.Position,
-				"module_id":  item.ModuleID,
-				"file_path": filePath,
-				"required_time": item.RequiredTime,
+				"module_item_id":       item.ID,
+				"title":                item.Title,
+				"item_type":            item.ItemType,
+				"module_item_position": item.Position,
+				"module_id":            item.ModuleID,
+				"module_position":      modulePosition,
+				"file_path":            filePath,
+				"required_time":        item.RequiredTime,
+				"unlocked":             isUnlocked,
 			}
 			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		}
