@@ -17,6 +17,7 @@ type UserProfile struct {
 	Birthday          time.Time
 	PhoneNumber       string
 	PersonalEmail     string
+	Department        string
 	CompanyJoinedDate time.Time
 	Introduce         string
 	Gender            int

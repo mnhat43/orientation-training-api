@@ -60,6 +60,7 @@ func (ctr *UserController) GetLoginUser(c echo.Context) error {
 		"last_name":    user.UserProfile.LastName,
 		"avatar":       user.UserProfile.Avatar,
 		"birthday":     user.UserProfile.Birthday,
+		"department":   user.UserProfile.Department,
 		"role_id":      user.RoleID,
 		"role_name":    user.Role.Name,
 	}
