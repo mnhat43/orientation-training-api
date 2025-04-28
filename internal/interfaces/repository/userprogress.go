@@ -8,4 +8,5 @@ import (
 type UserProgressRepository interface {
 	GetUserProgress(userID int, courseID int) (m.UserProgress, error)
 	SaveUserProgress(userProgress *m.UserProgress) error
+	GetUserProgressByCourseID(courseID int) ([]m.UserProgress, error)
 }

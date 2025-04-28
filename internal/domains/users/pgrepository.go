@@ -60,3 +60,21 @@ func (repo *PgUserRepository) GetUserProfile(id int) (m.User, error) {
 
 	return user, err
 }
+
+// GetUsersByRoleID retrieves all users with the specified role ID
+func (repo *PgUserRepository) GetUsersByRoleID(roleID int) ([]m.User, error) {
+	var users []m.User
+	err := repo.DB.Model(&users).
+		Column("usr.*").
+		Where("usr.role_id = ?", roleID).
+		Where("usr.deleted_at is null").
+		Relation("UserProfile").
+		Relation("Role").
+		Select()
+
+	if err != nil {
+		repo.Logger.Errorf("Error getting users by role ID: %+v", err)
+	}
+
+	return users, err
+}

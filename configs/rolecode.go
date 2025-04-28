@@ -4,6 +4,6 @@ package configs
 const (
 	AdminRoleID          = 1
 	ManagerRoleID        = 2
-	UserRoleID           = 3
+	TraineeRoleID        = 3
 	GeneralManagerRoleID = 4
 )

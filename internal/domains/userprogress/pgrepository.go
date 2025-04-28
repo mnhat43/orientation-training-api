@@ -60,3 +60,19 @@ func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgr
 
 	return err
 }
+
+// GetUserProgressByCourseID retrieves all user progress records for a specific course
+func (repo *PgUserProgressRepository) GetUserProgressByCourseID(courseID int) ([]m.UserProgress, error) {
+	var userProgressList []m.UserProgress
+
+	err := repo.DB.Model(&userProgressList).
+		Where("course_id = ?", courseID).
+		Where("deleted_at IS NULL").
+		Select()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return userProgressList, nil
+}

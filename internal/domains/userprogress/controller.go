@@ -18,10 +18,11 @@ type UserProgressController struct {
 	UserProgressRepo rp.UserProgressRepository
 	ModuleRepo       rp.ModuleRepository
 	ModuleItemRepo   rp.ModuleItemRepository
+	UserRepo         rp.UserRepository
 }
 
-func NewUserProgressController(logger echo.Logger, userProgressRepo rp.UserProgressRepository, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository) (ctr *UserProgressController) {
-	ctr = &UserProgressController{cm.BaseController{}, userProgressRepo, moduleRepo, moduleItemRepo}
+func NewUserProgressController(logger echo.Logger, userProgressRepo rp.UserProgressRepository, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, userRepo rp.UserRepository) (ctr *UserProgressController) {
+	ctr = &UserProgressController{cm.BaseController{}, userProgressRepo, moduleRepo, moduleItemRepo, userRepo}
 	ctr.Init(logger)
 	return
 }
@@ -196,5 +197,82 @@ func (ctr *UserProgressController) AddUserProgress(c echo.Context) error {
 		Status:  cf.SuccessResponseCode,
 		Message: "Progress created successfully",
 		Data:    userProgress,
+	})
+}
+
+func (ctr *UserProgressController) GetListTraineeByCourseID(c echo.Context) error {
+	getListProgressParams := new(param.GetListTraineeByCourseIDParams)
+
+	if err := c.Bind(getListProgressParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid Params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(getListProgressParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Get all trainees
+	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.TraineeRoleID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch trainees: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch trainees",
+		})
+	}
+
+	// Get all user progress records for the course
+	userProgressList, err := ctr.UserProgressRepo.GetUserProgressByCourseID(getListProgressParams.CourseID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch user progress list: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch user progress list",
+		})
+	}
+
+	// Create a map of user progress records for quick lookup
+	userProgressMap := make(map[int]m.UserProgress)
+	for _, progress := range userProgressList {
+		userProgressMap[progress.UserID] = progress
+	}
+
+	// Create the response with trainee information and status
+	traineeInfoList := []map[string]interface{}{}
+
+	for _, trainee := range trainees {
+		status := cf.NotAssigned
+		if progress, exists := userProgressMap[trainee.ID]; exists {
+			if progress.Completed {
+				status = cf.Completed
+			} else {
+				status = cf.InProgress
+			}
+		}
+
+		traineeInfo := map[string]interface{}{
+			"userID":     trainee.ID,
+			"fullname":   trainee.UserProfile.FirstName + " " + trainee.UserProfile.LastName,
+			"email":      trainee.UserProfile.PersonalEmail,
+			"department": trainee.UserProfile.Department,
+			"status":     status,
+		}
+
+		traineeInfoList = append(traineeInfoList, traineeInfo)
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Trainee progress list retrieved successfully",
+		Data:    traineeInfoList,
 	})
 }

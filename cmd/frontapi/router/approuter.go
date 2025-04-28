@@ -51,7 +51,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
 		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, gcsStorage),
-		upCtr:         up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo),
+		upCtr:         up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
 
 		// adminCtr: ad.NewAdminController(),
 
@@ -142,4 +142,5 @@ func (r *AppRouter) UserProgressRoute(g *echo.Group) {
 	g.POST("/update-user-progress", r.upCtr.UpdateUserProgress, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/get-user-progress", r.upCtr.GetUserProgress, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/add-user-progress", r.upCtr.AddUserProgress, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/list-trainee-by-course", r.upCtr.GetListTraineeByCourseID, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
