@@ -2,7 +2,6 @@ package userprogress
 
 import (
 	cm "orientation-training-api/internal/common"
-	param "orientation-training-api/internal/interfaces/requestparams"
 	m "orientation-training-api/internal/models"
 
 	"github.com/labstack/echo/v4"
@@ -12,17 +11,17 @@ type PgUserProgressRepository struct {
 	cm.AppRepository
 }
 
-func NewPgUserProgressRepository(logger echo.Logger)(repo *PgUserProgressRepository) {
+func NewPgUserProgressRepository(logger echo.Logger) (repo *PgUserProgressRepository) {
 	repo = &PgUserProgressRepository{}
 	repo.Init(logger)
 	return
 }
 
-func (repo *PgUserProgressRepository) GetUserProgress(getUserProgressParams *param.GetUserProgressParams) (m.UserProgress, error) {
+func (repo *PgUserProgressRepository) GetUserProgress(userID int, courseID int) (m.UserProgress, error) {
 	userProgress := m.UserProgress{}
 
-	err := repo.DB.Model(&userProgress).Where("user_id = ?", getUserProgressParams.UserID).
-		Where("course_id = ?", getUserProgressParams.CourseID).
+	err := repo.DB.Model(&userProgress).Where("user_id = ?", userID).
+		Where("course_id = ?", courseID).
 		Where("deleted_at IS NULL").
 		First()
 
@@ -37,11 +36,12 @@ func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgr
 		Where("course_id = ?", userProgress.CourseID).
 		Where("deleted_at IS NULL").
 		Exists()
-	
+
 	if err != nil {
+		repo.Logger.Errorf("Error checking if user progress exists: %v", err)
 		return err
 	}
-	
+
 	if exists {
 		// Update existing record
 		_, err = repo.DB.Model(userProgress).
@@ -57,6 +57,6 @@ func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgr
 		// Create new record
 		_, err = repo.DB.Model(userProgress).Insert()
 	}
-	
+
 	return err
 }

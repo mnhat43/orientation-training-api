@@ -27,6 +27,7 @@ func (repo *PgModuleRepository) GetModules(moduleListParams *param.ModuleListPar
 	queryObj.Where("course_id = ?", moduleListParams.CourseID)
 	queryObj.Offset((moduleListParams.CurrentPage - 1) * moduleListParams.RowPerPage)
 	queryObj.Limit(moduleListParams.RowPerPage)
+	queryObj.Order("position ASC") // Added order by position
 	totalRow, err := queryObj.SelectAndCount()
 	return modules, totalRow, err
 }
@@ -71,6 +72,7 @@ func (repo *PgModuleRepository) GetModuleIDsByCourseID(courseID int) ([]int, err
 	err := repo.DB.Model((*m.Module)(nil)).
 		Column("id").
 		Where("course_id = ?", courseID).
+		Order("position ASC").
 		Select(&moduleIDs)
 	if err != nil {
 		return nil, err

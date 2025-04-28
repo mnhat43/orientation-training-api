@@ -11,7 +11,8 @@ type Course struct {
 	Title       string `pg:",notnull"`
 	Description string
 	Thumbnail   string
-	CreatedBy   int `pg:",fk:created_by"`
+	Category    string `pg:",notnull"`
+	CreatedBy   int    `pg:",fk:created_by"`
 
 	// User User `pg:"rel:has-one"`
 }
@@ -23,7 +24,8 @@ type CourseDetail struct {
 	Title       string `pg:",notnull"`
 	Description string
 	Thumbnail   string
-	CreatedBy   int `pg:",fk:created_by"`
+	Category    string `pg:",notnull"`
+	CreatedBy   int    `pg:",fk:created_by"`
 
 	User User `pg:"rel:has-one"`
 }

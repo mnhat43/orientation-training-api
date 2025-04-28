@@ -7,6 +7,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
+	m "orientation-training-api/internal/models"
 	gc "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/utils"
 	"strings"
@@ -35,7 +36,6 @@ func NewCourseController(logger echo.Logger, courseRepo rp.CourseRepository, use
 // Params : echo.Context
 // Returns : return error
 func (ctr *CourseController) GetCourseList(c echo.Context) error {
-	// userProfile := c.Get("user_profile").(m.User)
 	courseListParams := new(param.CourseListParams)
 
 	if err := c.Bind(courseListParams); err != nil {
@@ -92,13 +92,14 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 		}
 
 		itemDataResponse := map[string]interface{}{
-			"course_id":          course.ID,
-			"course_title":       course.Title,
-			"course_description": course.Description,
-			"course_thumbnail":   base64Img,
-			"created_by":         course.CreatedBy,
-			"created_at":         course.CreatedAt.Format(cf.FormatDateDisplay),
-			"updated_at":         course.UpdatedAt.Format(cf.FormatDateDisplay),
+			"id":          course.ID,
+			"title":       course.Title,
+			"description": course.Description,
+			"thumbnail":   base64Img,
+			"category":    course.Category,
+			"created_by":  course.CreatedBy,
+			"created_at":  course.CreatedAt.Format(cf.FormatDateDisplay),
+			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),
 		}
 
 		listCourseResponse = append(listCourseResponse, itemDataResponse)
@@ -118,6 +119,7 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 // Params : echo.Context
 // Returns : return error
 func (ctr *CourseController) AddCourse(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
 	createCourseParams := new(param.CreateCourseParams)
 
 	if err := c.Bind(createCourseParams); err != nil {
@@ -182,6 +184,7 @@ func (ctr *CourseController) AddCourse(c echo.Context) error {
 		createCourseParams.Thumbnail = nameThumbnail
 	}
 
+	createCourseParams.CreatedBy = userProfile.ID
 	course, err := ctr.CourseRepo.SaveCourse(createCourseParams, ctr.UserCourseRepo)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{

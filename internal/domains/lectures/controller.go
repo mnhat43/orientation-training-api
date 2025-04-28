@@ -52,11 +52,9 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 			Message: err.Error(),
 		})
 	}
-	getUserProgressParams := &param.GetUserProgressParams{
-		UserID:   userProfile.ID,
-		CourseID: lectureListParams.CourseID,
-	}
-	userProgress, err := ctr.UserProgressRepo.GetUserProgress(getUserProgressParams)
+
+	// Get user progress with explicit userID from authenticated user
+	userProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, lectureListParams.CourseID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{

@@ -11,7 +11,22 @@ const (
 	ThumbnailFolderGCS          = "images/thumbnail/"
 	FileFolderGCS               = "files/"
 	VideoFolderGCS              = "videos/"
+
+	// Course category
+	Onboarding = 1
+	Company    = 2
+	Technical  = 3
+	Soft       = 4
+	Compliance = 5
 )
+
+var CourseCategoryList = map[int]string{
+	Onboarding: "Onboarding",
+	Company:    "Company",
+	Technical:  "Technical",
+	Soft:       "Soft",
+	Compliance: "Compliance",
+}
 
 // AllowFormatImageList format image allow
 var AllowFormatImageList = []string{

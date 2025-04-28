@@ -55,7 +55,7 @@ func (ctr *ModuleItemController) GetModuleItemList(c echo.Context) error {
 		})
 	}
 
-	moduleItems, totalRow, err := ctr.ModuleItemRepo.GetModuleItems(moduleItemListParams)
+	moduleItems, _, err := ctr.ModuleItemRepo.GetModuleItems(moduleItemListParams)
 
 	if err != nil {
 		if err.Error() == pg.ErrNoRows.Error() {
@@ -71,22 +71,10 @@ func (ctr *ModuleItemController) GetModuleItemList(c echo.Context) error {
 		})
 	}
 
-	if moduleItemListParams.RowPerPage == 0 {
-		moduleItemListParams.CurrentPage = 1
-		moduleItemListParams.RowPerPage = totalRow
-	}
-
-	pagination := map[string]interface{}{
-		"current_page": moduleItemListParams.CurrentPage,
-		"total_row":    totalRow,
-		"row_per_page": moduleItemListParams.RowPerPage,
-	}
-
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Success",
 		Data: map[string]interface{}{
-			"pagination":  pagination,
 			"moduleItems": moduleItems,
 		},
 	})
@@ -118,6 +106,25 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 			Status:  cf.FailResponseCode,
 			Message: "Invalid item_type. Allowed values: video, file",
 		})
+	}
+
+	// Calculate the position for the new module item
+	moduleItemListParams := &param.ModuleItemListParams{
+		ModuleID: createModuleItemParams.ModuleID,
+	}
+	_, totalItems, err := ctr.ModuleItemRepo.GetModuleItems(moduleItemListParams)
+	if err != nil {
+		ctr.Logger.Warnf("Error fetching existing module items: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Error fetching existing module items",
+		})
+	}
+
+	if totalItems == 0 {
+		createModuleItemParams.Position = 1
+	} else {
+		createModuleItemParams.Position = totalItems + 1
 	}
 
 	if createModuleItemParams.ItemType == "video" {
@@ -219,12 +226,12 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 	}
 
 	moduleItemResponse := map[string]interface{}{
-		"id":        savedItem.ID,
-		"type":      savedItem.ItemType,
-		"title":     savedItem.Title,
-		"resource":  savedItem.Resource,
-		"position":  savedItem.Position,
-		"required_time":  savedItem.RequiredTime,
+		"id":            savedItem.ID,
+		"type":          savedItem.ItemType,
+		"title":         savedItem.Title,
+		"resource":      savedItem.Resource,
+		"position":      savedItem.Position,
+		"required_time": savedItem.RequiredTime,
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{

@@ -22,12 +22,8 @@ func NewPgModuleItemRepository(logger echo.Logger) (repo *PgModuleItemRepository
 func (repo *PgModuleItemRepository) GetModuleItems(moduleItemListParams *param.ModuleItemListParams) ([]m.ModuleItem, int, error) {
 	moduleItems := []m.ModuleItem{}
 	queryObj := repo.DB.Model(&moduleItems)
-	if moduleItemListParams.Keyword != "" {
-		queryObj.Where("LOWER(title) LIKE LOWER(?)", "%"+moduleItemListParams.Keyword+"%")
-	}
 	queryObj.Where("module_id = ?", moduleItemListParams.ModuleID)
-	queryObj.Offset((moduleItemListParams.CurrentPage - 1) * moduleItemListParams.RowPerPage)
-	queryObj.Limit(moduleItemListParams.RowPerPage)
+	queryObj.Order("position ASC")
 	totalRow, err := queryObj.SelectAndCount()
 	return moduleItems, totalRow, err
 }
@@ -37,11 +33,12 @@ func (repo *PgModuleItemRepository) GetModuleItems(moduleItemListParams *param.M
 // Returns : return object of record that 've just been inserted
 func (repo *PgModuleItemRepository) SaveModuleItem(createModuleItemParams *param.CreateModuleItemParams) (m.ModuleItem, error) {
 	moduleItem := m.ModuleItem{
-		Title:    createModuleItemParams.Title,
-		ItemType: createModuleItemParams.ItemType,
-		Resource: createModuleItemParams.Resource,
+		Title:        createModuleItemParams.Title,
+		ItemType:     createModuleItemParams.ItemType,
+		Resource:     createModuleItemParams.Resource,
+		Position:     createModuleItemParams.Position,
 		RequiredTime: createModuleItemParams.RequiredTime,
-		ModuleID: createModuleItemParams.ModuleID,
+		ModuleID:     createModuleItemParams.ModuleID,
 	}
 
 	err := repo.DB.Insert(&moduleItem)
@@ -72,6 +69,7 @@ func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int) (
 	err := repo.DB.Model(&moduleItems).
 		Where("module_id IN (?)", pg.In(moduleIDs)).
 		Where("deleted_at is null").
+		Order("position ASC").
 		Select()
 	if err != nil {
 		return nil, err

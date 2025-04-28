@@ -4,7 +4,8 @@ type CreateCourseParams struct {
 	Title       string `json:"title" valid:"required"`
 	Description string `json:"description"`
 	Thumbnail   string `json:"thumbnail"`
-	CreatedBy   int    `json:"created_by" valid:"required"`
+	Category    string `json:"category" valid:"required"`
+	CreatedBy   int    `json:"created_by"`
 }
 
 type UpdateCourseParams struct {
@@ -12,6 +13,7 @@ type UpdateCourseParams struct {
 	Title       string `json:"title" form:"course_title" valid:"required"`
 	Description string `json:"description" form:"course_description"`
 	Thumbnail   string `json:"thumbnail" form:"course_thumbnail"`
+	Category    string `json:"category" form:"course_category" valid:"required"`
 	CreatedBy   int    `json:"created_by" form:"created_by" valid:"required"`
 }
 

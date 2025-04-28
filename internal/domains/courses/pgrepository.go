@@ -56,6 +56,7 @@ func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCours
 			createCourseParams.Title,
 			createCourseParams.Description,
 			createCourseParams.Thumbnail,
+			createCourseParams.Category,
 			createCourseParams.CreatedBy,
 		)
 		if transErr != nil {
@@ -77,11 +78,12 @@ func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCours
 // InsertCourseWithTx : insert data to courses
 // Params : pg.Tx, title, description, thumbnail
 // Returns : return course object , error
-func (repo *PgCourseRepository) InsertCourseWithTx(tx *pg.Tx, title string, description string, thumbnail string, createdBy int) (m.Course, error) {
+func (repo *PgCourseRepository) InsertCourseWithTx(tx *pg.Tx, title string, description string, thumbnail string, category string, createdBy int) (m.Course, error) {
 	course := m.Course{
 		Title:       title,
 		Description: description,
 		Thumbnail:   thumbnail,
+		Category:    category,
 		CreatedBy:   createdBy,
 	}
 	err := tx.Insert(&course)
@@ -102,6 +104,7 @@ func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCoursePar
 		Title:       courseParams.Title,
 		Description: courseParams.Description,
 		Thumbnail:   courseParams.Thumbnail,
+		Category:    courseParams.Category,
 		CreatedBy:   courseParams.CreatedBy,
 	}
 
@@ -122,7 +125,7 @@ func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCoursePar
 		err = repo.DB.RunInTransaction(func(tx *pg.Tx) error {
 			var transErr error
 			if _, transErr = tx.Model(course).
-				Column("title", "description", "thumbnail", "created_by", "updated_at").
+				Column("title", "description", "thumbnail", "category", "created_by", "updated_at").
 				Where("id = ?", courseParams.ID).
 				Update(); transErr != nil {
 				repo.Logger.Error()
@@ -138,7 +141,7 @@ func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCoursePar
 		})
 	} else {
 		_, err = repo.DB.Model(course).
-			Column("title", "description", "thumbnail", "created_by", "updated_at").
+			Column("title", "description", "thumbnail", "category", "created_by", "updated_at").
 			Where("id = ?", courseParams.ID).
 			Update()
 	}

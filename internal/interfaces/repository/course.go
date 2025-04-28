@@ -11,7 +11,7 @@ type CourseRepository interface {
 	GetCourseByID(id int) (m.Course, error)
 	GetCourses(courseListParams *param.CourseListParams) ([]m.Course, int, error)
 	SaveCourse(createCourseParams *param.CreateCourseParams, userCourseRepo UserCourseRepository) (m.Course, error)
-	InsertCourseWithTx(tx *pg.Tx, title, description, thumbnail string, createdBy int) (m.Course, error)
+	InsertCourseWithTx(tx *pg.Tx, title, description, thumbnail string, category string, createdBy int) (m.Course, error)
 	UpdateCourse(courseParams *param.UpdateCourseParams, userCourseRepo UserCourseRepository) error
 	DeleteCourse(courseID int) error
 	// GetCourseDetail(id int) ([]m.CourseDetail, int, error)
