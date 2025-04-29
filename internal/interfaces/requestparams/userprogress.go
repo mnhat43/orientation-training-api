@@ -27,3 +27,7 @@ type GetListTraineeByCourseIDParams struct {
 	RowPerPage  int    `json:"row_per_page"`
 	Keyword     string `json:"keyword"`
 }
+type AddListTraineeToCourseParams struct {
+	CourseID int   `json:"course_id" validate:"required"`
+	Trainees []int `json:"trainees" validate:"required"`
+}

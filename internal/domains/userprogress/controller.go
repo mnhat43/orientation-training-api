@@ -52,13 +52,11 @@ func (ctr *UserProgressController) UpdateUserProgress(c echo.Context) error {
 		})
 	}
 
-	// Create user progress entry
 	userProgress := &m.UserProgress{
 		UserID:   userProfile.ID,
 		CourseID: updateUserProgressParams.CourseID,
 	}
 
-	// If the completed flag is set, we need to get the current progress first
 	if updateUserProgressParams.Completed {
 		currentProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, updateUserProgressParams.CourseID)
 		if err != nil {
@@ -69,12 +67,10 @@ func (ctr *UserProgressController) UpdateUserProgress(c echo.Context) error {
 			})
 		}
 
-		// For marking complete, keep existing positions but set completed=true
 		userProgress.ModulePosition = currentProgress.ModulePosition
 		userProgress.ModuleItemPosition = currentProgress.ModuleItemPosition
 		userProgress.Completed = true
 	} else {
-		// For regular progress updates, use the provided positions and set completed=false
 		userProgress.ModulePosition = updateUserProgressParams.ModulePosition
 		userProgress.ModuleItemPosition = updateUserProgressParams.ModuleItemPosition
 		userProgress.Completed = false
@@ -164,10 +160,8 @@ func (ctr *UserProgressController) AddUserProgress(c echo.Context) error {
 		})
 	}
 
-	// Check if user progress already exists
 	existingProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, createUserProgressParams.CourseID)
 	if err == nil && existingProgress.ID != 0 {
-		// Progress already exists, return appropriate response
 		return c.JSON(http.StatusOK, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
 			Message: "User progress already exists for this course",
@@ -175,7 +169,6 @@ func (ctr *UserProgressController) AddUserProgress(c echo.Context) error {
 		})
 	}
 
-	// Create new user progress entry
 	userProgress := &m.UserProgress{
 		UserID:             userProfile.ID,
 		CourseID:           createUserProgressParams.CourseID,
@@ -220,7 +213,6 @@ func (ctr *UserProgressController) GetListTraineeByCourseID(c echo.Context) erro
 		})
 	}
 
-	// Get all trainees
 	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.TraineeRoleID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch trainees: %v", err)
@@ -230,7 +222,6 @@ func (ctr *UserProgressController) GetListTraineeByCourseID(c echo.Context) erro
 		})
 	}
 
-	// Get all user progress records for the course
 	userProgressList, err := ctr.UserProgressRepo.GetUserProgressByCourseID(getListProgressParams.CourseID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress list: %v", err)
@@ -240,13 +231,11 @@ func (ctr *UserProgressController) GetListTraineeByCourseID(c echo.Context) erro
 		})
 	}
 
-	// Create a map of user progress records for quick lookup
 	userProgressMap := make(map[int]m.UserProgress)
 	for _, progress := range userProgressList {
 		userProgressMap[progress.UserID] = progress
 	}
 
-	// Create the response with trainee information and status
 	traineeInfoList := []map[string]interface{}{}
 
 	for _, trainee := range trainees {
@@ -274,5 +263,43 @@ func (ctr *UserProgressController) GetListTraineeByCourseID(c echo.Context) erro
 		Status:  cf.SuccessResponseCode,
 		Message: "Trainee progress list retrieved successfully",
 		Data:    traineeInfoList,
+	})
+}
+
+// AddListTraineeToCourse adds multiple trainees to a course
+func (ctr *UserProgressController) AddListTraineeToCourse(c echo.Context) error {
+	addListTraineeToCourseParams := new(param.AddListTraineeToCourseParams)
+	if err := c.Bind(addListTraineeToCourseParams); err != nil {
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid request format",
+		})
+	}
+
+	if _, err := valid.ValidateStruct(addListTraineeToCourseParams); err != nil {
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Validation failed: " + err.Error(),
+		})
+	}
+
+	for _, traineeID := range addListTraineeToCourseParams.Trainees {
+		progress := &m.UserProgress{
+			UserID:             traineeID,
+			CourseID:           addListTraineeToCourseParams.CourseID,
+			ModulePosition:     1,
+			ModuleItemPosition: 1,
+			Completed:          false,
+		}
+
+		if err := ctr.UserProgressRepo.SaveUserProgress(progress); err != nil {
+			ctr.Logger.Errorf("Failed to add trainee %d to course %d: %v", traineeID, addListTraineeToCourseParams.CourseID, err)
+			continue
+		}
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Trainees successfully added to course",
 	})
 }

@@ -143,4 +143,5 @@ func (r *AppRouter) UserProgressRoute(g *echo.Group) {
 	g.POST("/get-user-progress", r.upCtr.GetUserProgress, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/add-user-progress", r.upCtr.AddUserProgress, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/list-trainee-by-course", r.upCtr.GetListTraineeByCourseID, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/add-list-trainee-to-course", r.upCtr.AddListTraineeToCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }

@@ -30,7 +30,6 @@ func (repo *PgUserProgressRepository) GetUserProgress(userID int, courseID int) 
 
 // SaveUserProgress creates a new progress record or updates an existing one
 func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgress) error {
-	// Check if record exists
 	exists, err := repo.DB.Model((*m.UserProgress)(nil)).
 		Where("user_id = ?", userProgress.UserID).
 		Where("course_id = ?", userProgress.CourseID).
@@ -43,7 +42,6 @@ func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgr
 	}
 
 	if exists {
-		// Update existing record
 		_, err = repo.DB.Model(userProgress).
 			Set("module_position = ?", userProgress.ModulePosition).
 			Set("module_item_position = ?", userProgress.ModuleItemPosition).
@@ -54,7 +52,6 @@ func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgr
 			Where("deleted_at IS NULL").
 			Update()
 	} else {
-		// Create new record
 		_, err = repo.DB.Model(userProgress).Insert()
 	}
 
