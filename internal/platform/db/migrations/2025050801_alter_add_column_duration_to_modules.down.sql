@@ -1,0 +1,2 @@
+ALTER TABLE modules
+DROP COLUMN IF EXISTS duration;

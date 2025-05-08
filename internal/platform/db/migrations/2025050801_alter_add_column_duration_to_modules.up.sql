@@ -1,0 +1,2 @@
+ALTER TABLE modules
+ADD COLUMN duration INT DEFAULT 0;
