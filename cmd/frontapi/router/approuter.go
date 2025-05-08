@@ -6,6 +6,7 @@ import (
 	lec "orientation-training-api/internal/domains/lectures"
 	mdi "orientation-training-api/internal/domains/moduleitem"
 	md "orientation-training-api/internal/domains/modules"
+	tp "orientation-training-api/internal/domains/templatepaths"
 	uc "orientation-training-api/internal/domains/usercourse"
 	up "orientation-training-api/internal/domains/userprogress"
 	u "orientation-training-api/internal/domains/users"
@@ -18,14 +19,15 @@ import (
 )
 
 type AppRouter struct {
-	authCtr       *auth.AuthController
-	userCtr       *u.UserController
-	courseCtr     *c.CourseController
-	moduleCtr     *md.ModuleController
-	moduleItemCtr *mdi.ModuleItemController
-	ucCtr         *uc.UserCourseController
-	lectureCtr    *lec.LectureController
-	upCtr         *up.UserProgressController
+	authCtr         *auth.AuthController
+	userCtr         *u.UserController
+	courseCtr       *c.CourseController
+	moduleCtr       *md.ModuleController
+	moduleItemCtr   *mdi.ModuleItemController
+	ucCtr           *uc.UserCourseController
+	lectureCtr      *lec.LectureController
+	upCtr           *up.UserProgressController
+	templatePathCtr *tp.TemplatePathController
 
 	// adminCtr *ad.Controller
 
@@ -40,18 +42,20 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	moduleItemRepo := mdi.NewPgModuleItemRepository(logger)
 	ucRepo := uc.NewPgUserCourseRepository(logger)
 	upRepo := up.NewPgUserProgressRepository(logger)
+	templatePathRepo := tp.NewPgTemplatePathRepository(logger)
 	// adminRepo := ad.NewPgAdminRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
 
 	r = &AppRouter{
-		authCtr:       auth.NewAuthController(logger, userRepo),
-		userCtr:       u.NewUserController(logger, userRepo),
-		courseCtr:     c.NewCourseController(logger, courseRepo, ucRepo, gcsStorage),
-		moduleCtr:     md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
-		moduleItemCtr: mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
-		lectureCtr:    lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, gcsStorage),
-		upCtr:         up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
+		authCtr:         auth.NewAuthController(logger, userRepo),
+		userCtr:         u.NewUserController(logger, userRepo),
+		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, gcsStorage),
+		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
+		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
+		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, gcsStorage),
+		upCtr:           up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
+		templatePathCtr: tp.NewTemplatePathController(logger, templatePathRepo, courseRepo),
 
 		// adminCtr: ad.NewAdminController(),
 
@@ -144,4 +148,17 @@ func (r *AppRouter) UserProgressRoute(g *echo.Group) {
 	g.POST("/add-user-progress", r.upCtr.AddUserProgress, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/list-trainee-by-course", r.upCtr.GetListTraineeByCourseID, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/add-list-trainee-to-course", r.upCtr.AddListTraineeToCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+}
+
+func (r *AppRouter) TemplatePathRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.POST("/get-template-path-list", r.templatePathCtr.GetTemplatePathList, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/get-template-path", r.templatePathCtr.GetTemplatePath, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/create-template-path", r.templatePathCtr.CreateTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/update-template-path", r.templatePathCtr.UpdateTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/delete-template-path", r.templatePathCtr.DeleteTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }

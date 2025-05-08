@@ -97,6 +97,7 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 			"description": course.Description,
 			"thumbnail":   base64Img,
 			"category":    course.Category,
+			"duration":    course.Duration,
 			"created_by":  course.CreatedBy,
 			"created_at":  course.CreatedAt.Format(cf.FormatDateDisplay),
 			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),

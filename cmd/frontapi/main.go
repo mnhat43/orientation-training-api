@@ -109,7 +109,7 @@ func main() {
 	router.ModuleRoute(e.Group("/module"))
 	router.LectureRoute(e.Group("/lecture"))
 	router.UserProgressRoute(e.Group("/user-progress"))
-	// router.AdminRouter(e.Group("/admin"))
+	router.TemplatePathRoute(e.Group("/template-path"))
 
 	go func() {
 		if err := e.Start(":8080"); err != nil {

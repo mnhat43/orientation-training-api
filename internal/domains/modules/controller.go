@@ -156,19 +156,20 @@ func (ctr *ModuleController) GetModuleDetails(c echo.Context) error {
 
 		for _, moduleItem := range moduleListItem {
 			moduleItemResponse = append(moduleItemResponse, map[string]interface{}{
-				"id":        moduleItem.ID,
-				"title":     moduleItem.Title,
-				"item_type": moduleItem.ItemType,
-				"resource":  moduleItem.Resource,
-				"position":  moduleItem.Position,
-				"required_time":  moduleItem.RequiredTime,
+				"id":            moduleItem.ID,
+				"title":         moduleItem.Title,
+				"item_type":     moduleItem.ItemType,
+				"resource":      moduleItem.Resource,
+				"position":      moduleItem.Position,
+				"required_time": moduleItem.RequiredTime,
 			})
 		}
 
 		itemDataResponse := map[string]interface{}{
-			"id":    module.ID,
-			"title": module.Title,
-			"position": module.Position,
+			"id":           module.ID,
+			"title":        module.Title,
+			"duration":     module.Duration,
+			"position":     module.Position,
 			"module_items": moduleItemResponse,
 		}
 
