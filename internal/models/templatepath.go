@@ -8,9 +8,9 @@ import (
 type TemplatePath struct {
 	cm.BaseModel
 
-	ID          int    `json:"id" pg:"id,pk"`
-	Name        string `json:"name" pg:"name,notnull"`
-	Description string `json:"description" pg:"description"`
-	Courses     []int  `json:"courses" pg:"courses,array"`
-	Duration    int    `json:"duration" pg:"duration"`
+	ID          int    `pg:"id,pk" json:"id"`
+	Name        string `pg:"name,notnull" json:"name"`
+	Description string `pg:"description" json:"description"`
+	CourseIds   []int  `pg:"course_ids,array" json:"course_ids"`
+	Duration    int    `pg:"duration" json:"duration"`
 }

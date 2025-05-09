@@ -56,18 +56,14 @@ func FindStringInArray(slice []string, val string) (int, bool) {
 func CalculateRequiredTime(duration string) int {
 	parts := strings.Split(duration, ":")
 	var totalSeconds int
-	
-	for i, unit := range []int{3600, 60, 1} {
-		if i < len(parts) {
-			value, _ := strconv.Atoi(parts[i])
-			totalSeconds += value * unit
-		}
+	units := []int{1, 60, 3600}
+
+	for i := 0; i < len(parts); i++ {
+		value, _ := strconv.Atoi(parts[len(parts)-1-i])
+		totalSeconds += value * units[i]
 	}
 
-	// Tính 70% thời gian
-	requiredSeconds := int(float64(totalSeconds) * 0.7)
-
-	return requiredSeconds
+	return int(float64(totalSeconds) * 0.7)
 }
 
 // func parseISO8601Duration(isoDuration string) string {
