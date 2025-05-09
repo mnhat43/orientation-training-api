@@ -72,7 +72,7 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 	})
 
 	g.GET("/profile", r.userCtr.GetLoginUser, isLoggedIn)
-
+	g.POST("/list-trainee", r.userCtr.GetListTrainee, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
 
 func (r *AppRouter) AuthRoute(g *echo.Group) {

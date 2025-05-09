@@ -7,3 +7,8 @@ const (
 	HR          = 4
 	Finance     = 5
 )
+
+var Gender = map[int]string{
+	1: "Male",
+	2: "Female",
+}

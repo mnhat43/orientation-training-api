@@ -71,3 +71,49 @@ func (ctr *UserController) GetLoginUser(c echo.Context) error {
 		Data:    dataResponse,
 	})
 }
+
+// GetListTrainee retrieves all users with trainee role
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) GetListTrainee(c echo.Context) error {
+	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.TraineeRoleID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch trainees: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch trainees",
+		})
+	}
+
+	traineeList := []map[string]interface{}{}
+
+	for _, trainee := range trainees {
+		traineeInfo := map[string]interface{}{
+			"userID":      trainee.ID,
+			"email":       trainee.Email,
+			"fullname":    trainee.UserProfile.FirstName + " " + trainee.UserProfile.LastName,
+			"phoneNumber": trainee.UserProfile.PhoneNumber,
+			"avatar":      trainee.UserProfile.Avatar,
+			"birthday":    nil,
+			"department":  trainee.UserProfile.Department,
+			"gender":      cf.Gender[trainee.UserProfile.Gender],
+			"joinedDate":  nil,
+		}
+
+		if !trainee.UserProfile.Birthday.IsZero() {
+			traineeInfo["birthday"] = trainee.UserProfile.Birthday.Format(cf.FormatDateDatabase)
+		}
+
+		if !trainee.UserProfile.CompanyJoinedDate.IsZero() {
+			traineeInfo["joinedDate"] = trainee.UserProfile.CompanyJoinedDate.Format(cf.FormatDateDatabase)
+		}
+
+		traineeList = append(traineeList, traineeInfo)
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Trainee list retrieved successfully",
+		Data:    traineeList,
+	})
+}
