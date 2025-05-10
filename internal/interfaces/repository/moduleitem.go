@@ -11,4 +11,5 @@ type ModuleItemRepository interface {
 	GetModuleItemByID(id int) (m.ModuleItem, error)
 	DeleteModuleItem(moduleItemID int) error
 	GetModuleItemsByModuleIDs(moduleIDs []int) ([]m.ModuleItem, error)
+	GetModuleItemsByModuleID(moduleID int) ([]m.ModuleItem, error)
 }

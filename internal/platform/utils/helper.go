@@ -66,13 +66,35 @@ func CalculateRequiredTime(duration string) int {
 	return int(float64(totalSeconds) * 0.7)
 }
 
+// Helper function to parse YouTube duration format to seconds
+func ParseDurationToSeconds(duration string) int {
+	// Handle different formats: "HH:MM:SS", "MM:SS", "SS"
+	parts := strings.Split(duration, ":")
+	seconds := 0
+
+	if len(parts) == 3 { // "HH:MM:SS"
+		hours, _ := strconv.Atoi(parts[0])
+		minutes, _ := strconv.Atoi(parts[1])
+		secs, _ := strconv.Atoi(parts[2])
+		seconds = hours*3600 + minutes*60 + secs
+	} else if len(parts) == 2 { // "MM:SS"
+		minutes, _ := strconv.Atoi(parts[0])
+		secs, _ := strconv.Atoi(parts[1])
+		seconds = minutes*60 + secs
+	} else if len(parts) == 1 { // "SS"
+		seconds, _ = strconv.Atoi(parts[0])
+	}
+
+	return seconds
+}
+
 // func parseISO8601Duration(isoDuration string) string {
 // 	re := regexp.MustCompile(`PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?`)
 // 	matches := re.FindStringSubmatch(isoDuration)
 
-// 	hours, _ := strconv.Atoi(matches[1])
-// 	minutes, _ := strconv.Atoi(matches[2])
-// 	seconds, _ := strconv.Atoi(matches[3])
+// 			hours, _ := strconv.Atoi(matches[1])
+// 			minutes, _ := strconv.Atoi(matches[2])
+// 			seconds, _ := strconv.Atoi(matches[3])
 
 // 	if hours > 0 {
 // 		return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)

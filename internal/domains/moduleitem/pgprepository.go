@@ -76,3 +76,19 @@ func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int) (
 	}
 	return moduleItems, nil
 }
+
+// GetModuleItemsByModuleID : retrieve all module items for a specific module
+// Params : moduleID
+// Returns : slice of module items and error
+func (repo *PgModuleItemRepository) GetModuleItemsByModuleID(moduleID int) ([]m.ModuleItem, error) {
+	moduleItems := []m.ModuleItem{}
+	err := repo.DB.Model(&moduleItems).
+		Where("module_id = ?", moduleID).
+		Where("deleted_at is null").
+		Order("position ASC").
+		Select()
+	if err != nil {
+		return nil, err
+	}
+	return moduleItems, nil
+}

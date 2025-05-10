@@ -10,6 +10,7 @@ import (
 	m "orientation-training-api/internal/models"
 	gc "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/utils"
+	"orientation-training-api/internal/platform/youtube"
 	"strings"
 	"time"
 
@@ -23,11 +24,27 @@ type CourseController struct {
 
 	CourseRepo     rp.CourseRepository
 	UserCourseRepo rp.UserCourseRepository
+	ModuleRepo     rp.ModuleRepository
+	ModuleItemRepo rp.ModuleItemRepository
 	cloud          gc.StorageUtility
 }
 
-func NewCourseController(logger echo.Logger, courseRepo rp.CourseRepository, userCourse rp.UserCourseRepository, cloud gc.StorageUtility) (ctr *CourseController) {
-	ctr = &CourseController{cm.BaseController{}, courseRepo, userCourse, cloud}
+func NewCourseController(
+	logger echo.Logger,
+	courseRepo rp.CourseRepository,
+	userCourse rp.UserCourseRepository,
+	moduleRepo rp.ModuleRepository,
+	moduleItemRepo rp.ModuleItemRepository,
+	cloud gc.StorageUtility,
+) (ctr *CourseController) {
+	ctr = &CourseController{
+		cm.BaseController{},
+		courseRepo,
+		userCourse,
+		moduleRepo,
+		moduleItemRepo,
+		cloud,
+	}
 	ctr.Init(logger)
 	return
 }
@@ -260,5 +277,114 @@ func (ctr *CourseController) DeleteCourse(c echo.Context) error {
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Deleted",
+	})
+}
+
+// GetCourseDetail retrieves detailed information about a specific course
+// Params: echo.Context
+// Returns: error
+func (ctr *CourseController) GetCourseDetail(c echo.Context) error {
+	courseIDParam := new(param.CourseIDParam)
+	if err := c.Bind(courseIDParam); err != nil {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid Params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(courseIDParam); err != nil {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	course, err := ctr.CourseRepo.GetCourseByID(courseIDParam.CourseID)
+	if err != nil {
+		if err.Error() == pg.ErrNoRows.Error() {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Course not found",
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "System Error",
+		})
+	}
+
+	modules, err := ctr.ModuleRepo.GetModulesByCourseID(course.ID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch modules: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch course modules",
+		})
+	}
+
+	moduleList := []map[string]interface{}{}
+	ytService := youtube.NewYouTubeService()
+
+	for _, module := range modules {
+		moduleItems, err := ctr.ModuleItemRepo.GetModuleItemsByModuleID(module.ID)
+		if err != nil {
+			ctr.Logger.Errorf("Failed to fetch module items for module %d: %v", module.ID, err)
+			continue
+		}
+
+		itemsList := []map[string]interface{}{}
+		for _, item := range moduleItems {
+			duration := 0
+
+			if item.ItemType == "file" {
+				duration = item.RequiredTime
+			} else if item.ItemType == "video" {
+				videoID := item.Resource
+
+				videoInfo, err := ytService.GetVideoDetails(videoID)
+				if err == nil && videoInfo != nil {
+					duration = utils.ParseDurationToSeconds(videoInfo.Duration)
+				} else {
+					ctr.Logger.Errorf("Failed to fetch video details for %s: %v", videoID, err)
+					duration = item.RequiredTime
+				}
+			}
+
+			itemData := map[string]interface{}{
+				"id":            item.ID,
+				"title":         item.Title,
+				"item_type":     item.ItemType,
+				"required_time": item.RequiredTime,
+				"position":      item.Position,
+				"duration":      duration,
+			}
+			itemsList = append(itemsList, itemData)
+		}
+
+		moduleData := map[string]interface{}{
+			"id":           module.ID,
+			"title":        module.Title,
+			"position":     module.Position,
+			"duration":     module.Duration,
+			"module_items": itemsList,
+		}
+
+		moduleList = append(moduleList, moduleData)
+	}
+
+	courseDetail := map[string]interface{}{
+		"id":          course.ID,
+		"title":       course.Title,
+		"description": course.Description,
+		"category":    course.Category,
+		"duration":    course.Duration,
+		"modules":     moduleList,
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Course details retrieved successfully",
+		Data:    courseDetail,
 	})
 }

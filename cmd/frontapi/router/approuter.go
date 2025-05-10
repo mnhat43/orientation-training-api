@@ -43,21 +43,18 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	ucRepo := uc.NewPgUserCourseRepository(logger)
 	upRepo := up.NewPgUserProgressRepository(logger)
 	templatePathRepo := tp.NewPgTemplatePathRepository(logger)
-	// adminRepo := ad.NewPgAdminRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
 
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
 		userCtr:         u.NewUserController(logger, userRepo),
-		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, gcsStorage),
+		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, moduleRepo, moduleItemRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
 		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, gcsStorage),
 		upCtr:           up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
 		templatePathCtr: tp.NewTemplatePathController(logger, templatePathRepo, courseRepo),
-
-		// adminCtr: ad.NewAdminController(),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
 	}
@@ -96,7 +93,7 @@ func (r *AppRouter) CourseRoute(g *echo.Group) {
 	g.POST("/add-course", r.courseCtr.AddCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	// g.POST("/update-course", r.courseCtr.UpdateCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/delete-course", r.courseCtr.DeleteCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
-	// g.POST("/get-course-detail", r.courseCtr.GetCourseDetail, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/get-course-detail", r.courseCtr.GetCourseDetail, isLoggedIn, r.userMw.InitUserProfile)
 
 	// g.GET("/getuser", r.userCtr.GetLoginUser, isLoggedIn)
 

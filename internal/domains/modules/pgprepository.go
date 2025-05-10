@@ -79,3 +79,19 @@ func (repo *PgModuleRepository) GetModuleIDsByCourseID(courseID int) ([]int, err
 	}
 	return moduleIDs, nil
 }
+
+// GetModulesByCourseID : retrieve all modules for a specific course
+// Params : courseID
+// Returns : slice of modules and error
+func (repo *PgModuleRepository) GetModulesByCourseID(courseID int) ([]m.Module, error) {
+	modules := []m.Module{}
+	err := repo.DB.Model(&modules).
+		Where("course_id = ?", courseID).
+		Where("deleted_at is null").
+		Order("position ASC").
+		Select()
+	if err != nil {
+		return nil, err
+	}
+	return modules, nil
+}
