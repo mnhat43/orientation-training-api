@@ -6,7 +6,8 @@ import (
 
 // UserProgressRepository defines methods for accessing user progress data
 type UserProgressRepository interface {
-	GetUserProgress(userID int, courseID int) (m.UserProgress, error)
+	GetSingleUserProgress(userID int, courseID int) (m.UserProgress, error)
 	SaveUserProgress(userProgress *m.UserProgress) error
 	GetUserProgressByCourseID(courseID int) ([]m.UserProgress, error)
+	GetAllUserProgressByUserID(userID int) ([]m.UserProgress, error)
 }

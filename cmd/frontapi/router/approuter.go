@@ -139,9 +139,11 @@ func (r *AppRouter) UserProgressRoute(g *echo.Group) {
 	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningKey: []byte(keyTokenAuth),
 	})
+	// g.POST("/get-all", r.upCtr.GetAllUserProgressByUserID, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/get-single", r.upCtr.GetSingleCourseProgress, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/get-user-progress", r.upCtr.GetAllUserProgressByUserID, isLoggedIn, r.userMw.InitUserProfile)
 
 	g.POST("/update-user-progress", r.upCtr.UpdateUserProgress, isLoggedIn, r.userMw.InitUserProfile)
-	g.POST("/get-user-progress", r.upCtr.GetUserProgress, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/add-user-progress", r.upCtr.AddUserProgress, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/list-trainee-by-course", r.upCtr.GetListTraineeByCourseID, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/add-list-trainee-to-course", r.upCtr.AddListTraineeToCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)

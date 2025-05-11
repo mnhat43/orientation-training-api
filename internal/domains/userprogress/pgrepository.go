@@ -17,13 +17,15 @@ func NewPgUserProgressRepository(logger echo.Logger) (repo *PgUserProgressReposi
 	return
 }
 
-func (repo *PgUserProgressRepository) GetUserProgress(userID int, courseID int) (m.UserProgress, error) {
+func (repo *PgUserProgressRepository) GetSingleUserProgress(userID int, courseID int) (m.UserProgress, error) {
 	userProgress := m.UserProgress{}
 
-	err := repo.DB.Model(&userProgress).Where("user_id = ?", userID).
+	query := repo.DB.Model(&userProgress).
+		Where("user_id = ?", userID).
 		Where("course_id = ?", courseID).
-		Where("deleted_at IS NULL").
-		First()
+		Where("deleted_at IS NULL")
+
+	err := query.First()
 
 	return userProgress, err
 }
@@ -65,6 +67,23 @@ func (repo *PgUserProgressRepository) GetUserProgressByCourseID(courseID int) ([
 	err := repo.DB.Model(&userProgressList).
 		Where("course_id = ?", courseID).
 		Where("deleted_at IS NULL").
+		Select()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return userProgressList, nil
+}
+
+// GetAllUserProgressByUserID retrieves all user progress records for a specific user
+func (repo *PgUserProgressRepository) GetAllUserProgressByUserID(userID int) ([]m.UserProgress, error) {
+	var userProgressList []m.UserProgress
+
+	err := repo.DB.Model(&userProgressList).
+		Where("user_id = ?", userID).
+		Where("deleted_at IS NULL").
+		Order("course_position ASC").
 		Select()
 
 	if err != nil {

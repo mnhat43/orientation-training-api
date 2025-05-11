@@ -52,13 +52,21 @@ func (ctr *UserProgressController) UpdateUserProgress(c echo.Context) error {
 		})
 	}
 
+	targetUserID := userProfile.ID
+
+	// If user is a manager and a specific userID is provided, use that instead
+	if userProfile.RoleID == cf.ManagerRoleID && updateUserProgressParams.UserID > 0 {
+		targetUserID = updateUserProgressParams.UserID
+	}
+
 	userProgress := &m.UserProgress{
-		UserID:   userProfile.ID,
-		CourseID: updateUserProgressParams.CourseID,
+		UserID:         targetUserID,
+		CourseID:       updateUserProgressParams.CourseID,
+		CoursePosition: updateUserProgressParams.CoursePosition,
 	}
 
 	if updateUserProgressParams.Completed {
-		currentProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, updateUserProgressParams.CourseID)
+		currentProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(targetUserID, updateUserProgressParams.CourseID)
 		if err != nil {
 			ctr.Logger.Errorf("Failed to fetch existing progress: %v", err)
 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
@@ -89,6 +97,7 @@ func (ctr *UserProgressController) UpdateUserProgress(c echo.Context) error {
 		Status:  cf.SuccessResponseCode,
 		Message: "Progress updated successfully",
 		Data: map[string]interface{}{
+			"course_position":      userProgress.CoursePosition,
 			"module_position":      userProgress.ModulePosition,
 			"module_item_position": userProgress.ModuleItemPosition,
 			"completed":            userProgress.Completed,
@@ -96,12 +105,12 @@ func (ctr *UserProgressController) UpdateUserProgress(c echo.Context) error {
 	})
 }
 
-// GetUserProgress retrieves a user's progress for a specific course
+// GetAllUserProgressByUserID is now modified to get progress for ALL courses of a user
 // Params: echo.Context
 // Returns: error
-func (ctr *UserProgressController) GetUserProgress(c echo.Context) error {
+func (ctr *UserProgressController) GetAllUserProgressByUserID(c echo.Context) error {
 	userProfile := c.Get("user_profile").(m.User)
-	getUserProgressParams := new(param.GetUserProgressParams)
+	getUserProgressParams := new(param.GetAllUserProgressParams)
 
 	if err := c.Bind(getUserProgressParams); err != nil {
 		ctr.Logger.Errorf("Failed to bind params: %v", err)
@@ -112,7 +121,45 @@ func (ctr *UserProgressController) GetUserProgress(c echo.Context) error {
 		})
 	}
 
-	if _, err := valid.ValidateStruct(getUserProgressParams); err != nil {
+	targetUserID := userProfile.ID
+
+	if userProfile.RoleID == cf.ManagerRoleID && getUserProgressParams.UserID > 0 {
+		targetUserID = getUserProgressParams.UserID
+	}
+
+	userProgressList, err := ctr.UserProgressRepo.GetAllUserProgressByUserID(targetUserID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch user progress list: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch user progress list",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "User progress for all courses retrieved successfully",
+		Data:    userProgressList,
+	})
+}
+
+// GetSingleCourseProgress retrieves a user's progress for a specific course
+// Params: echo.Context
+// Returns: error
+func (ctr *UserProgressController) GetSingleCourseProgress(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+	getSingleCourseProgressParams := new(param.GetSingleCourseProgressParams)
+
+	if err := c.Bind(getSingleCourseProgressParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid Params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(getSingleCourseProgressParams); err != nil {
 		ctr.Logger.Errorf("Validation failed: %v", err)
 		return c.JSON(http.StatusOK, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
@@ -120,7 +167,13 @@ func (ctr *UserProgressController) GetUserProgress(c echo.Context) error {
 		})
 	}
 
-	userProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, getUserProgressParams.CourseID)
+	targetUserID := userProfile.ID
+
+	if userProfile.RoleID == cf.ManagerRoleID && getSingleCourseProgressParams.UserID > 0 {
+		targetUserID = getSingleCourseProgressParams.UserID
+	}
+
+	userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(targetUserID, getSingleCourseProgressParams.CourseID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
@@ -136,11 +189,20 @@ func (ctr *UserProgressController) GetUserProgress(c echo.Context) error {
 	})
 }
 
-// AddUserProgress creates a new user progress record
+// AddUserProgress creates new user progress records for multiple courses
+// Only managers can add progress
 // Params: echo.Context
 // Returns: error
 func (ctr *UserProgressController) AddUserProgress(c echo.Context) error {
 	userProfile := c.Get("user_profile").(m.User)
+
+	if userProfile.RoleID != cf.ManagerRoleID {
+		return c.JSON(http.StatusForbidden, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Only managers can add progress for users",
+		})
+	}
+
 	createUserProgressParams := new(param.CreateUserProgressParams)
 
 	if err := c.Bind(createUserProgressParams); err != nil {
@@ -160,36 +222,47 @@ func (ctr *UserProgressController) AddUserProgress(c echo.Context) error {
 		})
 	}
 
-	existingProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, createUserProgressParams.CourseID)
-	if err == nil && existingProgress.ID != 0 {
+	targetUserID := createUserProgressParams.UserID
+	successCourses := []int{}
+
+	for i, courseID := range createUserProgressParams.CourseIDs {
+		coursePosition := i + 1
+
+		existingProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(targetUserID, courseID)
+		if err == nil && existingProgress.ID != 0 {
+			ctr.Logger.Infof("Progress already exists for user %d and course %d", targetUserID, courseID)
+			continue
+		}
+
+		userProgress := &m.UserProgress{
+			UserID:             targetUserID,
+			CourseID:           courseID,
+			CoursePosition:     coursePosition,
+			ModulePosition:     1,
+			ModuleItemPosition: 1,
+			Completed:          false,
+		}
+
+		err = ctr.UserProgressRepo.SaveUserProgress(userProgress)
+		if err != nil {
+			ctr.Logger.Errorf("Failed to create user progress for course %d: %v", courseID, err)
+			continue
+		}
+
+		successCourses = append(successCourses, courseID)
+	}
+
+	if len(successCourses) == 0 {
 		return c.JSON(http.StatusOK, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
-			Message: "User progress already exists for this course",
-			Data:    existingProgress,
-		})
-	}
-
-	userProgress := &m.UserProgress{
-		UserID:             userProfile.ID,
-		CourseID:           createUserProgressParams.CourseID,
-		ModulePosition:     createUserProgressParams.ModulePosition,
-		ModuleItemPosition: createUserProgressParams.ModuleItemPosition,
-		Completed:          false,
-	}
-
-	err = ctr.UserProgressRepo.SaveUserProgress(userProgress)
-	if err != nil {
-		ctr.Logger.Errorf("Failed to create user progress: %v", err)
-		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Failed to create progress",
+			Message: "No courses were added. Courses may already be assigned or an error occurred.",
 		})
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Progress created successfully",
-		Data:    userProgress,
+		Data:    nil,
 	})
 }
 

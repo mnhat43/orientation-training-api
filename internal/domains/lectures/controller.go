@@ -54,7 +54,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 	}
 
 	// Get user progress with explicit userID from authenticated user
-	userProgress, err := ctr.UserProgressRepo.GetUserProgress(userProfile.ID, lectureListParams.CourseID)
+	userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, lectureListParams.CourseID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
@@ -120,7 +120,6 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		isUnlocked := false
 		if modulePosition < currentModulePosition ||
 			(modulePosition == currentModulePosition && item.Position <= currentModuleItemPosition) {
-			isUnlocked = true
 		}
 
 		if item.ItemType == "video" {
