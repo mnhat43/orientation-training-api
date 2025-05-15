@@ -58,6 +58,7 @@ func (ctr *UserController) GetLoginUser(c echo.Context) error {
 		"phone_number": user.UserProfile.PhoneNumber,
 		"first_name":   user.UserProfile.FirstName,
 		"last_name":    user.UserProfile.LastName,
+		"fullname":     user.UserProfile.FirstName + " " + user.UserProfile.LastName,
 		"avatar":       user.UserProfile.Avatar,
 		"birthday":     user.UserProfile.Birthday,
 		"department":   user.UserProfile.Department,

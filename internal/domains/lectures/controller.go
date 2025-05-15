@@ -120,6 +120,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		isUnlocked := false
 		if modulePosition < currentModulePosition ||
 			(modulePosition == currentModulePosition && item.Position <= currentModuleItemPosition) {
+			isUnlocked = true
 		}
 
 		if item.ItemType == "video" {
