@@ -1,4 +1,4 @@
-CREATE TABLE quiz_questions (
+CREATE TABLE IF NOT EXISTS quiz_questions (
     id SERIAL PRIMARY KEY,
     quiz_id INT NOT NULL,
     question_type INT NOT NULL,
@@ -6,5 +6,6 @@ CREATE TABLE quiz_questions (
     weight FLOAT NOT NULL,
     is_multiple_correct BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL
 );

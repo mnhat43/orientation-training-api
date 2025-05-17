@@ -1,8 +1,9 @@
-CREATE TABLE quiz_answers (
+CREATE TABLE IF NOT EXISTS quiz_answers (
     id SERIAL PRIMARY KEY,
     quiz_question_id INT NOT NULL,
     answer_text TEXT NOT NULL,
     is_correct BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL
 );
