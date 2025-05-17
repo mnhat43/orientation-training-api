@@ -164,6 +164,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 				"module_position":      modulePosition,
 				"file_path":            filePath,
 				"required_time":        item.RequiredTime,
+				"duration":             item.RequiredTime,
 				"unlocked":             isUnlocked,
 			}
 			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
