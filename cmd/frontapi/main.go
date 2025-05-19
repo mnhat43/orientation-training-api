@@ -110,6 +110,7 @@ func main() {
 	router.LectureRoute(e.Group("/lecture"))
 	router.UserProgressRoute(e.Group("/user-progress"))
 	router.TemplatePathRoute(e.Group("/template-path"))
+	router.QuizPathRoute(e.Group("/quiz"))
 
 	go func() {
 		if err := e.Start(":8080"); err != nil {

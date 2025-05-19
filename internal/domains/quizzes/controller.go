@@ -1,0 +1,746 @@
+package quizzes
+
+import (
+	"net/http"
+	cf "orientation-training-api/configs"
+	cm "orientation-training-api/internal/common"
+	rp "orientation-training-api/internal/interfaces/repository"
+	param "orientation-training-api/internal/interfaces/requestparams"
+	m "orientation-training-api/internal/models"
+
+	valid "github.com/asaskevich/govalidator"
+	"github.com/labstack/echo/v4"
+)
+
+type QuizController struct {
+	cm.BaseController
+	QuizRepo rp.QuizRepository
+}
+
+func NewQuizController(logger echo.Logger, quizRepo rp.QuizRepository) (ctr *QuizController) {
+	ctr = &QuizController{cm.BaseController{}, quizRepo}
+	ctr.Init(logger)
+	return
+}
+
+// CreateQuiz creates a new quiz
+func (ctr *QuizController) CreateQuiz(c echo.Context) error {
+	// Only managers can create quizzes
+	userProfile := c.Get("user_profile").(m.User)
+	if userProfile.RoleID != cf.ManagerRoleID {
+		return c.JSON(http.StatusForbidden, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Only managers can create quizzes",
+		})
+	}
+
+	createQuizParams := new(param.CreateQuizParams)
+	if err := c.Bind(createQuizParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(createQuizParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	quiz := &m.Quiz{
+		Title:      createQuizParams.Title,
+		Difficulty: createQuizParams.Difficulty,
+		TotalScore: createQuizParams.TotalScore,
+		TimeLimit:  createQuizParams.TimeLimit,
+	}
+
+	err := ctr.QuizRepo.SaveQuiz(quiz)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to create quiz: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to create quiz",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz created successfully",
+		Data:    quiz,
+	})
+}
+
+// UpdateQuiz updates an existing quiz
+func (ctr *QuizController) UpdateQuiz(c echo.Context) error {
+	// Only managers can update quizzes
+	userProfile := c.Get("user_profile").(m.User)
+	if userProfile.RoleID != cf.ManagerRoleID {
+		return c.JSON(http.StatusForbidden, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Only managers can update quizzes",
+		})
+	}
+
+	updateQuizParams := new(param.UpdateQuizParams)
+	if err := c.Bind(updateQuizParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(updateQuizParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Check if quiz exists
+	existingQuiz, err := ctr.QuizRepo.GetQuizByID(updateQuizParams.ID)
+	if err != nil {
+		ctr.Logger.Errorf("Quiz not found: %v", err)
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Quiz not found",
+		})
+	}
+
+	// Update quiz properties
+	existingQuiz.Title = updateQuizParams.Title
+	existingQuiz.Difficulty = updateQuizParams.Difficulty
+	existingQuiz.TotalScore = updateQuizParams.TotalScore
+	existingQuiz.TimeLimit = updateQuizParams.TimeLimit
+
+	err = ctr.QuizRepo.SaveQuiz(&existingQuiz)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to update quiz: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to update quiz",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz updated successfully",
+		Data:    existingQuiz,
+	})
+}
+
+// GetQuizList retrieves a list of quizzes with pagination
+func (ctr *QuizController) GetQuizList(c echo.Context) error {
+	quizListParams := new(param.QuizListParams)
+	if err := c.Bind(quizListParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	// Set default current page if not provided
+	if quizListParams.CurrentPage <= 0 {
+		quizListParams.CurrentPage = 1
+	}
+
+	// Set default row per page if not provided
+	if quizListParams.RowPerPage <= 0 {
+		quizListParams.RowPerPage = 10
+	}
+
+	quizzes, total, err := ctr.QuizRepo.GetQuizList(quizListParams)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz list: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz list",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz list retrieved successfully",
+		Data: map[string]interface{}{
+			"quizzes":      quizzes,
+			"total":        total,
+			"current_page": quizListParams.CurrentPage,
+			"row_per_page": quizListParams.RowPerPage,
+		},
+	})
+}
+
+// GetQuizDetail retrieves a quiz with its questions and answers
+func (ctr *QuizController) GetQuizDetail(c echo.Context) error {
+	getQuizParams := new(param.GetQuizParams)
+	if err := c.Bind(getQuizParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(getQuizParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Get quiz details
+	quiz, err := ctr.QuizRepo.GetQuizByID(getQuizParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz: %v", err)
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Quiz not found",
+		})
+	}
+
+	// Get questions with answers
+	questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(getQuizParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz questions: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz questions",
+		})
+	}
+
+	// For non-admin users, remove the "is_correct" field from answers
+	userProfile := c.Get("user_profile").(m.User)
+	if userProfile.RoleID != cf.ManagerRoleID {
+		for i := range questions {
+			for j := range questions[i].Answers {
+				questions[i].Answers[j].IsCorrect = false
+			}
+		}
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz details retrieved successfully",
+		Data: map[string]interface{}{
+			"quiz":      quiz,
+			"questions": questions,
+		},
+	})
+}
+
+// DeleteQuiz deletes a quiz
+func (ctr *QuizController) DeleteQuiz(c echo.Context) error {
+	// Only managers can delete quizzes
+	userProfile := c.Get("user_profile").(m.User)
+	if userProfile.RoleID != cf.ManagerRoleID {
+		return c.JSON(http.StatusForbidden, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Only managers can delete quizzes",
+		})
+	}
+
+	deleteQuizParams := new(param.DeleteQuizParams)
+	if err := c.Bind(deleteQuizParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(deleteQuizParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Check if quiz exists
+	_, err := ctr.QuizRepo.GetQuizByID(deleteQuizParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Quiz not found: %v", err)
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Quiz not found",
+		})
+	}
+
+	// Delete quiz
+	err = ctr.QuizRepo.DeleteQuiz(deleteQuizParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to delete quiz: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to delete quiz",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz deleted successfully",
+	})
+}
+
+// CreateQuizQuestion creates or updates a quiz question with its answers
+func (ctr *QuizController) CreateQuizQuestion(c echo.Context) error {
+	// Only managers can create quiz questions
+	userProfile := c.Get("user_profile").(m.User)
+	if userProfile.RoleID != cf.ManagerRoleID {
+		return c.JSON(http.StatusForbidden, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Only managers can create quiz questions",
+		})
+	}
+
+	createQuestionParams := new(param.CreateQuizQuestionParams)
+	if err := c.Bind(createQuestionParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(createQuestionParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Check if quiz exists
+	_, err := ctr.QuizRepo.GetQuizByID(createQuestionParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Quiz not found: %v", err)
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Quiz not found",
+		})
+	}
+
+	// Create question object
+	question := &m.QuizQuestion{
+		QuizID:            createQuestionParams.QuizID,
+		QuestionType:      createQuestionParams.QuestionType,
+		QuestionText:      createQuestionParams.QuestionText,
+		Weight:            createQuestionParams.Weight,
+		IsMultipleCorrect: createQuestionParams.IsMultipleCorrect,
+	}
+
+	// Create answer objects
+	answers := make([]m.QuizAnswer, len(createQuestionParams.Answers))
+	for i, answerParam := range createQuestionParams.Answers {
+		answers[i] = m.QuizAnswer{
+			AnswerText: answerParam.AnswerText,
+			IsCorrect:  answerParam.IsCorrect,
+		}
+	}
+
+	// Save question and answers
+	err = ctr.QuizRepo.SaveQuizQuestion(question, answers)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to save quiz question: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to save quiz question",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz question created successfully",
+		Data:    question,
+	})
+}
+
+// SubmitQuizAnswers submits a user's answers to a quiz question
+func (ctr *QuizController) SubmitQuizAnswers(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+	submitAnswersParams := new(param.SubmitQuizAnswersParams)
+
+	if err := c.Bind(submitAnswersParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(submitAnswersParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(submitAnswersParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz questions: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz questions",
+		})
+	}
+
+	// Find the specific question
+	var questionFound bool
+	var currentQuestion m.QuizQuestion
+	for _, q := range questions {
+		if q.ID == submitAnswersParams.QuestionID {
+			questionFound = true
+			currentQuestion = q
+			break
+		}
+	}
+
+	if !questionFound {
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Question not found",
+		})
+	}
+
+	// Get the quiz to access total score
+	quiz, err := ctr.QuizRepo.GetQuizByID(submitAnswersParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz details",
+		})
+	}
+
+	// Calculate score based on answer correctness
+	score := 0.0
+	isCorrect := false
+	correctAnswerIDs := []int{}
+	reviewed := false
+
+	if currentQuestion.QuestionType == cf.QuestionTypeMultipleChoice {
+		// Create a map of correct answer IDs for easy lookup
+		correctAnswersMap := make(map[int]bool)
+		for _, answer := range currentQuestion.Answers {
+			if answer.IsCorrect {
+				correctAnswersMap[answer.ID] = true
+				correctAnswerIDs = append(correctAnswerIDs, answer.ID)
+			}
+		}
+
+		// Check if selected answers match correct answers
+		isCorrect = true
+		if len(submitAnswersParams.SelectedAnswerIds) != len(correctAnswersMap) {
+			isCorrect = false
+		} else {
+			for _, selectedID := range submitAnswersParams.SelectedAnswerIds {
+				if !correctAnswersMap[selectedID] {
+					isCorrect = false
+					break
+				}
+			}
+		}
+
+		if isCorrect {
+			// Calculate score based on question weight relative to total quiz score
+			score = currentQuestion.Weight * quiz.TotalScore
+			reviewed = true
+		}
+	} else if currentQuestion.QuestionType == cf.QuestionTypeEssay {
+		// For text answers, manager will need to manually review and score
+		score = 0        // Initially 0, to be updated by manager
+		reviewed = false // Essay answers need manual review
+	}
+
+	// Create submission record
+	submission := &m.QuizSubmission{
+		UserID:            userProfile.ID,
+		QuizID:            submitAnswersParams.QuizID,
+		QuizQuestionID:    submitAnswersParams.QuestionID,
+		AnswerText:        submitAnswersParams.AnswerText,
+		SelectedAnswerIds: submitAnswersParams.SelectedAnswerIds,
+		Score:             score,
+		Reviewed:          reviewed,
+	}
+
+	// Save submission
+	err = ctr.QuizRepo.SaveQuizSubmission(submission)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to save quiz submission: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to save quiz submission",
+		})
+	}
+
+	// Different response formats based on question type
+	responseData := map[string]interface{}{
+		"submission_id": submission.ID,
+		"question_text": currentQuestion.QuestionText,
+		"question_type": currentQuestion.QuestionType,
+		"max_score":     currentQuestion.Weight * quiz.TotalScore,
+		"reviewed":      reviewed,
+	}
+
+	if currentQuestion.QuestionType == cf.QuestionTypeMultipleChoice {
+		responseData["score"] = submission.Score
+		responseData["is_correct"] = isCorrect
+		responseData["selected_answers"] = submitAnswersParams.SelectedAnswerIds
+		responseData["correct_answers"] = correctAnswerIDs
+	} else if currentQuestion.QuestionType == cf.QuestionTypeEssay {
+		responseData["score"] = 0
+		responseData["review_status"] = "pending"
+		responseData["answer_text"] = submitAnswersParams.AnswerText
+		responseData["requires_review"] = true
+		responseData["review_message"] = "Essay answer submitted successfully and pending review by a manager"
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz answer submitted successfully",
+		Data:    responseData,
+	})
+}
+
+// SubmitFullQuiz submits all answers for a quiz at once
+func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+	submitParams := new(param.SubmitFullQuizParams)
+
+	if err := c.Bind(submitParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(submitParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(submitParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz questions: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz questions",
+		})
+	}
+
+	quiz, err := ctr.QuizRepo.GetQuizByID(submitParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz details: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz details",
+		})
+	}
+
+	questionsMap := make(map[int]m.QuizQuestion)
+	for _, q := range questions {
+		questionsMap[q.ID] = q
+	}
+
+	totalScore := 0.0
+	submissionDetails := []map[string]interface{}{}
+	essaySubmissions := []map[string]interface{}{}
+	hasEssayQuestions := false
+
+	for _, answer := range submitParams.Answers {
+		question, exists := questionsMap[answer.QuestionID]
+		if !exists {
+			ctr.Logger.Warnf("Question ID %d not found in quiz %d", answer.QuestionID, submitParams.QuizID)
+			continue
+		}
+
+		score := 0.0
+		isCorrect := false
+		correctAnswersList := []int{}
+		reviewed := false
+
+		if question.QuestionType == cf.QuestionTypeMultipleChoice {
+			correctAnswerIDs := make(map[int]bool)
+			for _, a := range question.Answers {
+				if a.IsCorrect {
+					correctAnswerIDs[a.ID] = true
+					correctAnswersList = append(correctAnswersList, a.ID)
+				}
+			}
+
+			isCorrect = true
+			if len(answer.SelectedAnswerIds) != len(correctAnswerIDs) {
+				isCorrect = false
+			} else {
+				for _, selectedID := range answer.SelectedAnswerIds {
+					if !correctAnswerIDs[selectedID] {
+						isCorrect = false
+						break
+					}
+				}
+			}
+
+			if isCorrect {
+				score = question.Weight * quiz.TotalScore
+			}
+
+			reviewed = true
+		} else if question.QuestionType == cf.QuestionTypeEssay {
+			hasEssayQuestions = true
+			score = 0 // Initially 0, to be updated by manager
+			reviewed = false
+		}
+
+		submission := &m.QuizSubmission{
+			UserID:            userProfile.ID,
+			QuizID:            submitParams.QuizID,
+			QuizQuestionID:    answer.QuestionID,
+			AnswerText:        answer.AnswerText,
+			SelectedAnswerIds: answer.SelectedAnswerIds,
+			Score:             score,
+			Reviewed:          reviewed,
+		}
+
+		err = ctr.QuizRepo.SaveQuizSubmission(submission)
+		if err != nil {
+			ctr.Logger.Errorf("Failed to save quiz submission for question %d: %v", answer.QuestionID, err)
+			continue
+		}
+
+		if question.QuestionType == cf.QuestionTypeMultipleChoice {
+			submissionDetail := map[string]interface{}{
+				"question_id":      answer.QuestionID,
+				"score":            score,
+				"is_correct":       isCorrect,
+				"selected_answers": answer.SelectedAnswerIds,
+				"correct_answers":  correctAnswersList,
+				"reviewed":         reviewed,
+			}
+			submissionDetails = append(submissionDetails, submissionDetail)
+		} else if question.QuestionType == cf.QuestionTypeEssay {
+			essaySubmission := map[string]interface{}{
+				"question_id": answer.QuestionID,
+				"reviewed":    reviewed,
+			}
+			essaySubmissions = append(essaySubmissions, essaySubmission)
+		}
+
+		totalScore += score
+	}
+
+	// Determine if passed (usually 70% is passing)
+	passThreshold := quiz.TotalScore * 0.7
+	passed := totalScore >= passThreshold
+
+	responseData := map[string]interface{}{
+		"quiz_id":        submitParams.QuizID,
+		"total_score":    totalScore,
+		"max_score":      quiz.TotalScore,
+		"passed":         passed,
+		"pass_threshold": passThreshold,
+		"submissions":    submissionDetails,
+	}
+
+	if hasEssayQuestions {
+		responseData["passed"] = true
+		responseData["essay_submissions"] = essaySubmissions
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz answers submitted successfully",
+		Data:    responseData,
+	})
+}
+
+// GetQuizResults retrieves quiz results for a user
+func (ctr *QuizController) GetQuizResults(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+	getResultsParams := new(param.GetQuizResultsParams)
+
+	if err := c.Bind(getResultsParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(getResultsParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Determine target user ID
+	targetUserID := userProfile.ID
+	if userProfile.RoleID == cf.ManagerRoleID && getResultsParams.UserID > 0 {
+		targetUserID = getResultsParams.UserID
+	}
+
+	// Get quiz details
+	quiz, err := ctr.QuizRepo.GetQuizByID(getResultsParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Quiz not found: %v", err)
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Quiz not found",
+		})
+	}
+
+	// Get submissions for this user and quiz
+	submissions, err := ctr.QuizRepo.GetQuizSubmissionsByUser(targetUserID, getResultsParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz submissions: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz submissions",
+		})
+	}
+
+	// Calculate total score
+	totalScore := 0.0
+	for _, submission := range submissions {
+		totalScore += submission.Score
+	}
+
+	// Determine if the user passed (assuming 70% is passing)
+	passThreshold := quiz.TotalScore * 0.7
+	passed := totalScore >= passThreshold
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Quiz results retrieved successfully",
+		Data: map[string]interface{}{
+			"quiz":           quiz,
+			"total_score":    totalScore,
+			"max_score":      quiz.TotalScore,
+			"passed":         passed,
+			"pass_threshold": passThreshold,
+			"submissions":    submissions,
+		},
+	})
+}

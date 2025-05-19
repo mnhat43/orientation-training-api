@@ -12,7 +12,6 @@ import (
 	"os"
 
 	valid "github.com/asaskevich/govalidator"
-
 	"github.com/labstack/echo/v4"
 )
 
@@ -23,11 +22,28 @@ type LectureController struct {
 	ModuleItemRepo   rp.ModuleItemRepository
 	CourseRepo       rp.CourseRepository
 	UserProgressRepo rp.UserProgressRepository
+	QuizRepo         rp.QuizRepository
 	Cloud            cld.StorageUtility
 }
 
-func NewLectureController(logger echo.Logger, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, courseRepo rp.CourseRepository, upRepo rp.UserProgressRepository, cloud cld.StorageUtility) (ctr *LectureController) {
-	ctr = &LectureController{cm.BaseController{}, moduleRepo, moduleItemRepo, courseRepo, upRepo, cloud}
+func NewLectureController(
+	logger echo.Logger,
+	moduleRepo rp.ModuleRepository,
+	moduleItemRepo rp.ModuleItemRepository,
+	courseRepo rp.CourseRepository,
+	upRepo rp.UserProgressRepository,
+	quizRepo rp.QuizRepository,
+	cloud cld.StorageUtility) (ctr *LectureController) {
+
+	ctr = &LectureController{
+		cm.BaseController{},
+		moduleRepo,
+		moduleItemRepo,
+		courseRepo,
+		upRepo,
+		quizRepo,
+		cloud,
+	}
 	ctr.Init(logger)
 	return
 }
@@ -167,6 +183,101 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 				"duration":             item.RequiredTime,
 				"unlocked":             isUnlocked,
 			}
+			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
+		} else if item.ItemType == "quiz" && item.QuizID > 0 {
+			quiz, err := ctr.QuizRepo.GetQuizByID(item.QuizID)
+			if err != nil {
+				ctr.Logger.Errorf("Failed to fetch quiz details for quiz ID %d: %v", item.QuizID, err)
+				continue
+			}
+
+			questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(item.QuizID)
+			if err != nil {
+				ctr.Logger.Errorf("Failed to fetch quiz questions for quiz ID %d: %v", item.QuizID, err)
+				continue
+			}
+
+			quizType := "multiple_choice"
+			var quizData map[string]interface{}
+
+			if len(questions) > 0 && questions[0].QuestionType == cf.QuestionTypeEssay {
+				essayQuestion := questions[0].QuestionText
+				quizType = "essay"
+
+				quizData = map[string]interface{}{
+					"quiz_id":        quiz.ID,
+					"difficulty":     cf.DifficultyLabels[quiz.Difficulty],
+					"score":          quiz.TotalScore,
+					"time_limit":     quiz.TimeLimit,
+					"essay_question": essayQuestion,
+					"quiz_type":      quizType,
+					"questions": []map[string]interface{}{
+						{
+							"id":             questions[0].ID,
+							"question_text":  questions[0].QuestionText,
+							"question_score": questions[0].Weight,
+						},
+					},
+				}
+			} else {
+				formattedQuestions := []map[string]interface{}{}
+
+				for _, q := range questions {
+					options := []map[string]interface{}{}
+
+					for _, a := range q.Answers {
+						option := map[string]interface{}{
+							"id":   a.ID,
+							"text": a.AnswerText,
+						}
+						options = append(options, option)
+					}
+
+					questionData := map[string]interface{}{
+						"id":             q.ID,
+						"question_text":  q.QuestionText,
+						"question_score": q.Weight,
+						"allow_multiple": q.IsMultipleCorrect,
+						"options":        options,
+					}
+
+					formattedQuestions = append(formattedQuestions, questionData)
+				}
+
+				quizData = map[string]interface{}{
+					"quiz_id":    quiz.ID,
+					"title":      quiz.Title,
+					"quiz_type":  quizType,
+					"difficulty": cf.DifficultyLabels[quiz.Difficulty],
+					"score":      quiz.TotalScore,
+					"time_limit": quiz.TimeLimit,
+					"questions":  formattedQuestions,
+				}
+			}
+
+			// Hide correct answers for non-manager users
+			if userProfile.RoleID != cf.ManagerRoleID && quizType == "multiple_choice" {
+				questions := quizData["questions"].([]map[string]interface{})
+				for i := range questions {
+					options := questions[i]["options"].([]map[string]interface{})
+					for j := range options {
+						options[j]["is_correct"] = false
+					}
+				}
+			}
+
+			lectureData := map[string]interface{}{
+				"module_item_id":       item.ID,
+				"title":                item.Title,
+				"item_type":            item.ItemType,
+				"module_item_position": item.Position,
+				"module_id":            item.ModuleID,
+				"module_position":      modulePosition,
+				"quiz_id":              item.QuizID,
+				"quiz_data":            quizData,
+				"unlocked":             isUnlocked,
+			}
+
 			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
 		}
 	}

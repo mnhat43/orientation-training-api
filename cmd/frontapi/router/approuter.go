@@ -6,6 +6,7 @@ import (
 	lec "orientation-training-api/internal/domains/lectures"
 	mdi "orientation-training-api/internal/domains/moduleitem"
 	md "orientation-training-api/internal/domains/modules"
+	quiz "orientation-training-api/internal/domains/quizzes"
 	tp "orientation-training-api/internal/domains/templatepaths"
 	uc "orientation-training-api/internal/domains/usercourse"
 	up "orientation-training-api/internal/domains/userprogress"
@@ -28,6 +29,7 @@ type AppRouter struct {
 	lectureCtr      *lec.LectureController
 	upCtr           *up.UserProgressController
 	templatePathCtr *tp.TemplatePathController
+	quizCtr         *quiz.QuizController
 
 	// adminCtr *ad.Controller
 
@@ -43,6 +45,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	ucRepo := uc.NewPgUserCourseRepository(logger)
 	upRepo := up.NewPgUserProgressRepository(logger)
 	templatePathRepo := tp.NewPgTemplatePathRepository(logger)
+	quizRepo := quiz.NewPgQuizRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
 
@@ -52,9 +55,10 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, moduleRepo, moduleItemRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
-		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, gcsStorage),
+		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, quizRepo, gcsStorage),
 		upCtr:           up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
 		templatePathCtr: tp.NewTemplatePathController(logger, templatePathRepo, courseRepo),
+		quizCtr:         quiz.NewQuizController(logger, quizRepo),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
 	}
@@ -160,4 +164,23 @@ func (r *AppRouter) TemplatePathRoute(g *echo.Group) {
 	g.POST("/create-template-path", r.templatePathCtr.CreateTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/update-template-path", r.templatePathCtr.UpdateTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/delete-template-path", r.templatePathCtr.DeleteTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+}
+
+func (r *AppRouter) QuizPathRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.POST("/list", r.quizCtr.GetQuizList, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/create", r.quizCtr.CreateQuiz, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/update", r.quizCtr.UpdateQuiz, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/delete", r.quizCtr.DeleteQuiz, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/details", r.quizCtr.GetQuizDetail, isLoggedIn, r.userMw.InitUserProfile)
+
+	g.POST("/question/create", r.quizCtr.CreateQuizQuestion, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+
+	g.POST("/submit", r.quizCtr.SubmitQuizAnswers, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/submit-full", r.quizCtr.SubmitFullQuiz, isLoggedIn, r.userMw.InitUserProfile)
+	g.POST("/results", r.quizCtr.GetQuizResults, isLoggedIn, r.userMw.InitUserProfile)
 }
