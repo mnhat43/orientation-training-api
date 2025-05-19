@@ -22,17 +22,19 @@ import (
 type CourseController struct {
 	cm.BaseController
 
-	CourseRepo     rp.CourseRepository
-	UserCourseRepo rp.UserCourseRepository
-	ModuleRepo     rp.ModuleRepository
-	ModuleItemRepo rp.ModuleItemRepository
-	cloud          gc.StorageUtility
+	CourseRepo       rp.CourseRepository
+	UserCourseRepo   rp.UserCourseRepository
+	UserProgressRepo rp.UserProgressRepository
+	ModuleRepo       rp.ModuleRepository
+	ModuleItemRepo   rp.ModuleItemRepository
+	cloud            gc.StorageUtility
 }
 
 func NewCourseController(
 	logger echo.Logger,
 	courseRepo rp.CourseRepository,
-	userCourse rp.UserCourseRepository,
+	ucRepo rp.UserCourseRepository,
+	upRepo rp.UserProgressRepository,
 	moduleRepo rp.ModuleRepository,
 	moduleItemRepo rp.ModuleItemRepository,
 	cloud gc.StorageUtility,
@@ -40,7 +42,8 @@ func NewCourseController(
 	ctr = &CourseController{
 		cm.BaseController{},
 		courseRepo,
-		userCourse,
+		ucRepo,
+		upRepo,
 		moduleRepo,
 		moduleItemRepo,
 		cloud,
@@ -49,28 +52,21 @@ func NewCourseController(
 	return
 }
 
-// GetCourseList : get list of courses(by courseName keyword)
+// GetCourseList : get list of all courses without pagination or filtering
 // Params : echo.Context
 // Returns : return error
 func (ctr *CourseController) GetCourseList(c echo.Context) error {
-	courseListParams := new(param.CourseListParams)
+	userProfile := c.Get("user_profile").(m.User)
+	var courses []m.Course
+	var err error
 
-	if err := c.Bind(courseListParams); err != nil {
-		return c.JSON(http.StatusOK, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Invalid Params",
-			Data:    err,
-		})
+	if userProfile.RoleID == cf.ManagerRoleID {
+		courses, err = ctr.CourseRepo.GetAllCourses()
+	} else if userProfile.RoleID == cf.TraineeRoleID {
+		courses, err = ctr.CourseRepo.GetUserCourses(userProfile.ID)
+	} else {
+		courses, err = ctr.CourseRepo.GetAllCourses()
 	}
-
-	if _, err := valid.ValidateStruct(courseListParams); err != nil {
-		return c.JSON(http.StatusOK, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: err.Error(),
-		})
-	}
-
-	courses, totalRow, err := ctr.CourseRepo.GetCourses(courseListParams)
 
 	if err != nil {
 		if err.Error() == pg.ErrNoRows.Error() {
@@ -86,17 +82,6 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 		})
 	}
 
-	if courseListParams.RowPerPage == 0 {
-		courseListParams.CurrentPage = 1
-		courseListParams.RowPerPage = totalRow
-	}
-
-	pagination := map[string]interface{}{
-		"current_page": courseListParams.CurrentPage,
-		"total_row":    totalRow,
-		"row_per_page": courseListParams.RowPerPage,
-	}
-
 	listCourseResponse := []map[string]interface{}{}
 	for _, course := range courses {
 		var base64Img []byte = nil
@@ -109,7 +94,7 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 		}
 
 		itemDataResponse := map[string]interface{}{
-			"id":          course.ID,
+			"course_id":   course.ID,
 			"title":       course.Title,
 			"description": course.Description,
 			"thumbnail":   base64Img,
@@ -120,6 +105,16 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),
 		}
 
+		if userProfile.RoleID == cf.TraineeRoleID {
+			userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, course.ID)
+			if err == nil && userProgress.ID > 0 {
+				itemDataResponse["course_position"] = userProgress.CoursePosition
+				itemDataResponse["module_position"] = userProgress.ModulePosition
+				itemDataResponse["module_item_position"] = userProgress.ModuleItemPosition
+				itemDataResponse["completed"] = userProgress.Completed
+			}
+		}
+
 		listCourseResponse = append(listCourseResponse, itemDataResponse)
 	}
 
@@ -127,8 +122,8 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 		Status:  cf.SuccessResponseCode,
 		Message: "Success",
 		Data: map[string]interface{}{
-			"pagination": pagination,
-			"courses":    listCourseResponse,
+			"courses": listCourseResponse,
+			"total":   len(courses),
 		},
 	})
 }

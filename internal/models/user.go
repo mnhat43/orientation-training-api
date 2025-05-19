@@ -10,7 +10,6 @@ type User struct {
 	cm.BaseModel
 
 	tableName     struct{} `sql:"alias:usr"` //lint:ignore U1000 needed by ORM
-	ID            int
 	Email         string
 	Password      string
 	RoleID        int

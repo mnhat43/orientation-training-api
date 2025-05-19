@@ -7,7 +7,6 @@ import (
 type Course struct {
 	cm.BaseModel
 
-	ID          int    `pg:",pk"`
 	Title       string `pg:",notnull"`
 	Description string
 	Thumbnail   string
@@ -21,7 +20,6 @@ type Course struct {
 type CourseDetail struct {
 	cm.BaseModel
 
-	ID          int    `pg:",pk"`
 	Title       string `pg:",notnull"`
 	Description string
 	Thumbnail   string

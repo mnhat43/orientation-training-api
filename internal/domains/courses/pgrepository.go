@@ -44,6 +44,22 @@ func (repo *PgCourseRepository) GetCourses(courseListParams *param.CourseListPar
 	return courses, totalRow, err
 }
 
+// GetAllCourses retrieves all courses without pagination
+func (repo *PgCourseRepository) GetAllCourses() ([]m.Course, error) {
+	courses := []m.Course{}
+	query := repo.DB.Model(&courses).
+		Where("deleted_at IS NULL").
+		Order("created_at DESC")
+
+	err := query.Select()
+	if err != nil {
+		repo.Logger.Errorf("Error fetching all courses: %v", err)
+		return nil, err
+	}
+
+	return courses, nil
+}
+
 // SaveCourse : insert data to course
 // Params : orgID, param.CreateCourseParams
 // Returns : return object of record that 've just been inserted
@@ -159,4 +175,35 @@ func (repo *PgCourseRepository) DeleteCourse(courseID int) error {
 		Delete()
 
 	return err
+}
+
+// GetUserCourses retrieves all courses that a specific user is enrolled in,
+// sorted by course_position from UserProgress table using relations
+func (repo *PgCourseRepository) GetUserCourses(userID int) ([]m.Course, error) {
+	var userProgresses []m.UserProgress
+
+	// Query user progresses with their related courses in a single query
+	query := repo.DB.Model(&userProgresses).
+		Relation("Course").
+		Where("user_progress.user_id = ?", userID).
+		Where("user_progress.deleted_at IS NULL").
+		Where("course.deleted_at IS NULL").
+		Order("user_progress.course_position ASC")
+
+	// Execute the query
+	err := query.Select()
+	if err != nil {
+		repo.Logger.Errorf("Error fetching user courses: %v", err)
+		return nil, err
+	}
+
+	// Extract courses from user progresses
+	var courses []m.Course
+	for _, progress := range userProgresses {
+		if progress.Course != nil {
+			courses = append(courses, *progress.Course)
+		}
+	}
+
+	return courses, nil
 }
