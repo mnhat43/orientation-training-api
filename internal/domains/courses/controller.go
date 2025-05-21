@@ -369,7 +369,7 @@ func (ctr *CourseController) GetCourseDetail(c echo.Context) error {
 	}
 
 	courseDetail := map[string]interface{}{
-		"id":          course.ID,
+		"course_id":   course.ID,
 		"title":       course.Title,
 		"description": course.Description,
 		"category":    course.Category,

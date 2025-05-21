@@ -79,7 +79,7 @@ func (ctr *TemplatePathController) GetTemplatePath(c echo.Context) error {
 		}
 
 		courseDetails = append(courseDetails, map[string]interface{}{
-			"id":          course.ID,
+			"course_id":   course.ID,
 			"title":       course.Title,
 			"thumbnail":   course.Thumbnail,
 			"category":    course.Category,
