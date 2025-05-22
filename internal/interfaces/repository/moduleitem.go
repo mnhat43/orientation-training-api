@@ -7,7 +7,7 @@ import (
 
 type ModuleItemRepository interface {
 	GetModuleItems(moduleItemListParams *param.ModuleItemListParams) ([]m.ModuleItem, int, error)
-	SaveModuleItem(moduleItemListParams *param.CreateModuleItemParams) (m.ModuleItem, error)
+	SaveModuleItem(createModuleItemParams *param.CreateModuleItemParams) (*m.ModuleItem, error)
 	GetModuleItemByID(id int) (m.ModuleItem, error)
 	DeleteModuleItem(moduleItemID int) error
 	GetModuleItemsByModuleIDs(moduleIDs []int) ([]m.ModuleItem, error)

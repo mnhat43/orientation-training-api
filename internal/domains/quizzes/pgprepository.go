@@ -1,10 +1,12 @@
 package quizzes
 
 import (
+	cf "orientation-training-api/configs"
 	cm "orientation-training-api/internal/common"
 	param "orientation-training-api/internal/interfaces/requestparams"
 	m "orientation-training-api/internal/models"
 
+	"github.com/go-pg/pg/v9"
 	"github.com/labstack/echo/v4"
 )
 
@@ -243,4 +245,68 @@ func (repo *PgQuizRepository) GetQuizSubmissionsByUser(userID, quizID int) ([]m.
 	}
 
 	return submissions, nil
+}
+
+// CreateQuizWithQuestionsAndAnswers handles the multi-step creation of a quiz
+// with questions and answers in a single transaction
+func (repo *PgQuizRepository) CreateQuizWithQuestionsAndAnswers(
+	quizData *param.QuizData,
+	title string) (int, error) {
+
+	var quizID int = 0
+
+	txErr := repo.DB.RunInTransaction(func(tx *pg.Tx) error {
+		quiz := &m.Quiz{
+			Title:      title,
+			Difficulty: quizData.Difficulty,
+			TotalScore: quizData.TotalScore,
+			TimeLimit:  quizData.TimeLimit,
+		}
+
+		if _, err := tx.Model(quiz).Insert(); err != nil {
+			repo.Logger.Errorf("Error creating quiz: %v", err)
+			return err
+		}
+
+		quizID = quiz.ID
+
+		for _, questionData := range quizData.Questions {
+			question := &m.QuizQuestion{
+				QuizID:            quiz.ID,
+				QuestionType:      quizData.QuestionType,
+				QuestionText:      questionData.QuestionText,
+				Weight:            questionData.Weight,
+				IsMultipleCorrect: questionData.AllowMultiple,
+			}
+
+			if _, err := tx.Model(question).Insert(); err != nil {
+				repo.Logger.Errorf("Error creating question: %v", err)
+				return err
+			}
+
+			if quizData.QuestionType == cf.QuesMultipleChoice {
+				for _, optionData := range questionData.Options {
+					answer := &m.QuizAnswer{
+						QuizQuestionID: question.ID,
+						AnswerText:     optionData.AnswersText,
+						IsCorrect:      optionData.IsCorrect,
+					}
+
+					if _, err := tx.Model(answer).Insert(); err != nil {
+						repo.Logger.Errorf("Error creating answer: %v", err)
+						return err
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		repo.Logger.Errorf("Transaction failed during quiz creation: %v", txErr)
+		return 0, txErr
+	}
+
+	return quizID, nil
 }

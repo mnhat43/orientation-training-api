@@ -7,14 +7,13 @@ import (
 type ModuleItem struct {
 	cm.BaseModel
 
-	ID           int    `pg:",pk"`
-	Title        string `pg:",notnull"`
-	ItemType     string `pg:",notnull"`
-	Resource     string `pg:","`
-	RequiredTime int    `pg:","`
-	ModuleID     int    `pg:",fk:module_id"`
-	Position     int    `pg:",notnull"`
-	QuizID       int    `json:"quiz_id" pg:"quiz_id"`
+	Title        string `pg:"title" json:"title"`
+	ItemType     string `pg:"item_type" json:"item_type"`
+	Resource     string `pg:"resource,null" json:"resource,omitempty"`
+	Position     int    `pg:"position" json:"position"`
+	RequiredTime int    `pg:"required_time,null" json:"required_time,omitempty"`
+	ModuleID     int    `pg:"module_id" json:"module_id"`
+	QuizID       int    `pg:"quiz_id,null" json:"quiz_id,omitempty"`
 
 	Module Module `pg:"rel:has-one"`
 }

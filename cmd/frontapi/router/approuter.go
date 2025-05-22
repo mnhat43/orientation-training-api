@@ -54,7 +54,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		userCtr:         u.NewUserController(logger, userRepo),
 		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
-		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, gcsStorage),
+		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, quizRepo, gcsStorage),
 		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, quizRepo, gcsStorage),
 		upCtr:           up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
 		templatePathCtr: tp.NewTemplatePathController(logger, templatePathRepo, courseRepo),

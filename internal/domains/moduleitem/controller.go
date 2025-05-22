@@ -24,11 +24,12 @@ type ModuleItemController struct {
 	cm.BaseController
 
 	ModuleItemRepo rp.ModuleItemRepository
+	QuizRepo       rp.QuizRepository
 	cloud          cld.StorageUtility
 }
 
-func NewModuleItemController(logger echo.Logger, moduleItemRepo rp.ModuleItemRepository, cloud cld.StorageUtility) (ctr *ModuleItemController) {
-	ctr = &ModuleItemController{cm.BaseController{}, moduleItemRepo, cloud}
+func NewModuleItemController(logger echo.Logger, moduleItemRepo rp.ModuleItemRepository, quizRepo rp.QuizRepository, cloud cld.StorageUtility) (ctr *ModuleItemController) {
+	ctr = &ModuleItemController{cm.BaseController{}, moduleItemRepo, quizRepo, cloud}
 	ctr.Init(logger)
 	return
 }
@@ -101,14 +102,16 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 		})
 	}
 
-	if createModuleItemParams.ItemType == "" || (createModuleItemParams.ItemType != "video" && createModuleItemParams.ItemType != "file") {
+	if createModuleItemParams.ItemType == "" ||
+		(createModuleItemParams.ItemType != "video" &&
+			createModuleItemParams.ItemType != "file" &&
+			createModuleItemParams.ItemType != "quiz") {
 		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
-			Message: "Invalid item_type. Allowed values: video, file",
+			Message: "Invalid item_type. Allowed values: video, file, quiz",
 		})
 	}
 
-	// Calculate the position for the new module item
 	moduleItemListParams := &param.ModuleItemListParams{
 		ModuleID: createModuleItemParams.ModuleID,
 	}
@@ -126,6 +129,8 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 	} else {
 		createModuleItemParams.Position = totalItems + 1
 	}
+
+	var quizID int = 0
 
 	if createModuleItemParams.ItemType == "video" {
 		if !valid.IsURL(createModuleItemParams.Resource) {
@@ -214,11 +219,94 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 		}
 
 		createModuleItemParams.Resource = fileName
+	} else if createModuleItemParams.ItemType == "quiz" {
+		if createModuleItemParams.QuizData == nil {
+			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Quiz data is required for quiz item type",
+			})
+		}
+
+		if createModuleItemParams.QuizData.QuestionType != cf.QuesMultipleChoice && createModuleItemParams.QuizData.QuestionType != cf.QuesEssay {
+			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid question type. Allowed values: 1 (multiple choice), 2 (essay)",
+			})
+		}
+
+		if len(createModuleItemParams.QuizData.Questions) == 0 {
+			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Quiz must have at least one question",
+			})
+		}
+
+		totalWeight := 0.0
+		for _, question := range createModuleItemParams.QuizData.Questions {
+			totalWeight += question.Weight
+
+			if createModuleItemParams.QuizData.QuestionType == cf.QuesMultipleChoice {
+				if len(question.Options) < 2 {
+					return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+						Status:  cf.FailResponseCode,
+						Message: "Multiple choice questions must have at least two options",
+					})
+				}
+
+				hasCorrectAnswer := false
+				for _, option := range question.Options {
+					if option.IsCorrect {
+						hasCorrectAnswer = true
+						break
+					}
+				}
+
+				if !hasCorrectAnswer {
+					return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+						Status:  cf.FailResponseCode,
+						Message: "Multiple choice questions must have at least one correct answer",
+					})
+				}
+			}
+		}
+
+		if totalWeight < 0.99 || totalWeight > 1.01 {
+			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Question weights must sum to 1.0",
+			})
+		}
+
+		var err error
+		quizID, err = ctr.QuizRepo.CreateQuizWithQuestionsAndAnswers(
+			createModuleItemParams.QuizData,
+			createModuleItemParams.Title,
+		)
+
+		ctr.Logger.Infof("Quiz ID: %d", quizID)
+
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Failed to create quiz: " + err.Error(),
+			})
+		}
+
+		createModuleItemParams.QuizID = quizID
+		createModuleItemParams.Resource = ""
+		createModuleItemParams.RequiredTime = 0
 	}
 
 	savedItem, err := ctr.ModuleItemRepo.SaveModuleItem(createModuleItemParams)
 	if err != nil {
 		ctr.Logger.Error(err)
+
+		if quizID > 0 {
+			if deleteErr := ctr.QuizRepo.DeleteQuiz(quizID); deleteErr != nil {
+				ctr.Logger.Errorf("Failed to clean up quiz after module item creation failed: %v", deleteErr)
+			}
+		}
+
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
 			Message: "Failed to save Module Item to database",
@@ -226,12 +314,17 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 	}
 
 	moduleItemResponse := map[string]interface{}{
-		"id":            savedItem.ID,
-		"type":          savedItem.ItemType,
-		"title":         savedItem.Title,
-		"resource":      savedItem.Resource,
-		"position":      savedItem.Position,
-		"required_time": savedItem.RequiredTime,
+		"id":       savedItem.ID,
+		"type":     savedItem.ItemType,
+		"title":    savedItem.Title,
+		"position": savedItem.Position,
+	}
+
+	if savedItem.ItemType == "quiz" {
+		moduleItemResponse["quiz_id"] = quizID
+	} else {
+		moduleItemResponse["resource"] = savedItem.Resource
+		moduleItemResponse["required_time"] = savedItem.RequiredTime
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{

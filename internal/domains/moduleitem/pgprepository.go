@@ -31,8 +31,8 @@ func (repo *PgModuleItemRepository) GetModuleItems(moduleItemListParams *param.M
 // SaveModuleItem : insert data to item
 // Params : param.CreateCourseParams
 // Returns : return object of record that 've just been inserted
-func (repo *PgModuleItemRepository) SaveModuleItem(createModuleItemParams *param.CreateModuleItemParams) (m.ModuleItem, error) {
-	moduleItem := m.ModuleItem{
+func (repo *PgModuleItemRepository) SaveModuleItem(createModuleItemParams *param.CreateModuleItemParams) (*m.ModuleItem, error) {
+	moduleItem := &m.ModuleItem{
 		Title:        createModuleItemParams.Title,
 		ItemType:     createModuleItemParams.ItemType,
 		Resource:     createModuleItemParams.Resource,
@@ -41,7 +41,12 @@ func (repo *PgModuleItemRepository) SaveModuleItem(createModuleItemParams *param
 		ModuleID:     createModuleItemParams.ModuleID,
 	}
 
-	err := repo.DB.Insert(&moduleItem)
+	if createModuleItemParams.ItemType == "quiz" {
+		moduleItem.QuizID = createModuleItemParams.QuizID
+	}
+
+	_, err := repo.DB.Model(moduleItem).Insert()
+
 	return moduleItem, err
 }
 

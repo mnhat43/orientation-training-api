@@ -5,7 +5,6 @@ import (
 	m "orientation-training-api/internal/models"
 )
 
-// QuizRepository defines methods for accessing quiz data
 type QuizRepository interface {
 	GetQuizByID(quizID int) (m.Quiz, error)
 	GetQuizList(params *param.QuizListParams) ([]m.Quiz, int, error)
@@ -15,4 +14,5 @@ type QuizRepository interface {
 	SaveQuizQuestion(question *m.QuizQuestion, answers []m.QuizAnswer) error
 	SaveQuizSubmission(submission *m.QuizSubmission) error
 	GetQuizSubmissionsByUser(userID, quizID int) ([]m.QuizSubmission, error)
+	CreateQuizWithQuestionsAndAnswers(quizData *param.QuizData, title string) (int, error)
 }
