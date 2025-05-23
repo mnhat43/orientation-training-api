@@ -43,5 +43,6 @@ type QuizSubmission struct {
 	AnswerText        string  `json:"answer_text" pg:"answer_text"`
 	SelectedAnswerIds []int   `json:"selected_answer_ids" pg:"selected_answer_ids,array"`
 	Score             float64 `json:"score" pg:"score"`
+	Attempt           int     `json:"attempt" pg:"attempt"`
 	Reviewed          bool    `json:"reviewed" pg:"reviewed,notnull"`
 }

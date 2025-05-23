@@ -368,155 +368,6 @@ func (ctr *QuizController) CreateQuizQuestion(c echo.Context) error {
 	})
 }
 
-// SubmitQuizAnswers submits a user's answers to a quiz question
-func (ctr *QuizController) SubmitQuizAnswers(c echo.Context) error {
-	userProfile := c.Get("user_profile").(m.User)
-	submitAnswersParams := new(param.SubmitQuizAnswersParams)
-
-	if err := c.Bind(submitAnswersParams); err != nil {
-		ctr.Logger.Errorf("Failed to bind params: %v", err)
-		return c.JSON(http.StatusOK, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Invalid params",
-			Data:    err,
-		})
-	}
-
-	if _, err := valid.ValidateStruct(submitAnswersParams); err != nil {
-		ctr.Logger.Errorf("Validation failed: %v", err)
-		return c.JSON(http.StatusOK, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: err.Error(),
-		})
-	}
-
-	questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(submitAnswersParams.QuizID)
-	if err != nil {
-		ctr.Logger.Errorf("Failed to fetch quiz questions: %v", err)
-		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Failed to fetch quiz questions",
-		})
-	}
-
-	// Find the specific question
-	var questionFound bool
-	var currentQuestion m.QuizQuestion
-	for _, q := range questions {
-		if q.ID == submitAnswersParams.QuestionID {
-			questionFound = true
-			currentQuestion = q
-			break
-		}
-	}
-
-	if !questionFound {
-		return c.JSON(http.StatusNotFound, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Question not found",
-		})
-	}
-
-	// Get the quiz to access total score
-	quiz, err := ctr.QuizRepo.GetQuizByID(submitAnswersParams.QuizID)
-	if err != nil {
-		ctr.Logger.Errorf("Failed to fetch quiz: %v", err)
-		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Failed to fetch quiz details",
-		})
-	}
-
-	// Calculate score based on answer correctness
-	score := 0.0
-	isCorrect := false
-	correctAnswerIDs := []int{}
-	reviewed := false
-
-	if currentQuestion.QuestionType == cf.QuestionTypeMultipleChoice {
-		// Create a map of correct answer IDs for easy lookup
-		correctAnswersMap := make(map[int]bool)
-		for _, answer := range currentQuestion.Answers {
-			if answer.IsCorrect {
-				correctAnswersMap[answer.ID] = true
-				correctAnswerIDs = append(correctAnswerIDs, answer.ID)
-			}
-		}
-
-		// Check if selected answers match correct answers
-		isCorrect = true
-		if len(submitAnswersParams.SelectedAnswerIds) != len(correctAnswersMap) {
-			isCorrect = false
-		} else {
-			for _, selectedID := range submitAnswersParams.SelectedAnswerIds {
-				if !correctAnswersMap[selectedID] {
-					isCorrect = false
-					break
-				}
-			}
-		}
-
-		if isCorrect {
-			// Calculate score based on question weight relative to total quiz score
-			score = currentQuestion.Weight * quiz.TotalScore
-			reviewed = true
-		}
-	} else if currentQuestion.QuestionType == cf.QuestionTypeEssay {
-		// For text answers, manager will need to manually review and score
-		score = 0        // Initially 0, to be updated by manager
-		reviewed = false // Essay answers need manual review
-	}
-
-	// Create submission record
-	submission := &m.QuizSubmission{
-		UserID:            userProfile.ID,
-		QuizID:            submitAnswersParams.QuizID,
-		QuizQuestionID:    submitAnswersParams.QuestionID,
-		AnswerText:        submitAnswersParams.AnswerText,
-		SelectedAnswerIds: submitAnswersParams.SelectedAnswerIds,
-		Score:             score,
-		Reviewed:          reviewed,
-	}
-
-	// Save submission
-	err = ctr.QuizRepo.SaveQuizSubmission(submission)
-	if err != nil {
-		ctr.Logger.Errorf("Failed to save quiz submission: %v", err)
-		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Failed to save quiz submission",
-		})
-	}
-
-	// Different response formats based on question type
-	responseData := map[string]interface{}{
-		"submission_id": submission.ID,
-		"question_text": currentQuestion.QuestionText,
-		"question_type": currentQuestion.QuestionType,
-		"max_score":     currentQuestion.Weight * quiz.TotalScore,
-		"reviewed":      reviewed,
-	}
-
-	if currentQuestion.QuestionType == cf.QuestionTypeMultipleChoice {
-		responseData["score"] = submission.Score
-		responseData["is_correct"] = isCorrect
-		responseData["selected_answers"] = submitAnswersParams.SelectedAnswerIds
-		responseData["correct_answers"] = correctAnswerIDs
-	} else if currentQuestion.QuestionType == cf.QuestionTypeEssay {
-		responseData["score"] = 0
-		responseData["review_status"] = "pending"
-		responseData["answer_text"] = submitAnswersParams.AnswerText
-		responseData["requires_review"] = true
-		responseData["review_message"] = "Essay answer submitted successfully and pending review by a manager"
-	}
-
-	return c.JSON(http.StatusOK, cf.JsonResponse{
-		Status:  cf.SuccessResponseCode,
-		Message: "Quiz answer submitted successfully",
-		Data:    responseData,
-	})
-}
-
 // SubmitFullQuiz submits all answers for a quiz at once
 func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 	userProfile := c.Get("user_profile").(m.User)
@@ -538,6 +389,17 @@ func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 			Message: err.Error(),
 		})
 	}
+
+	maxAttempt, err := ctr.QuizRepo.GetMaxQuizAttempt(userProfile.ID, submitParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Error getting max attempt: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to get attempt history",
+		})
+	}
+
+	currentAttempt := maxAttempt + 1
 
 	questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(submitParams.QuizID)
 	if err != nil {
@@ -618,6 +480,7 @@ func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 			AnswerText:        answer.AnswerText,
 			SelectedAnswerIds: answer.SelectedAnswerIds,
 			Score:             score,
+			Attempt:           currentAttempt,
 			Reviewed:          reviewed,
 		}
 
@@ -635,12 +498,14 @@ func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 				"selected_answers": answer.SelectedAnswerIds,
 				"correct_answers":  correctAnswersList,
 				"reviewed":         reviewed,
+				"attempt":          currentAttempt,
 			}
 			submissionDetails = append(submissionDetails, submissionDetail)
 		} else if question.QuestionType == cf.QuestionTypeEssay {
 			essaySubmission := map[string]interface{}{
 				"question_id": answer.QuestionID,
 				"reviewed":    reviewed,
+				"attempt":     currentAttempt,
 			}
 			essaySubmissions = append(essaySubmissions, essaySubmission)
 		}
@@ -659,6 +524,7 @@ func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 		"passed":         passed,
 		"pass_threshold": passThreshold,
 		"submissions":    submissionDetails,
+		"attempt":        currentAttempt,
 	}
 
 	if hasEssayQuestions {

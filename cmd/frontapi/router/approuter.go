@@ -180,7 +180,6 @@ func (r *AppRouter) QuizPathRoute(g *echo.Group) {
 
 	g.POST("/question/create", r.quizCtr.CreateQuizQuestion, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 
-	g.POST("/submit", r.quizCtr.SubmitQuizAnswers, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/submit-full", r.quizCtr.SubmitFullQuiz, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/results", r.quizCtr.GetQuizResults, isLoggedIn, r.userMw.InitUserProfile)
 }

@@ -207,6 +207,22 @@ func (repo *PgQuizRepository) SaveQuizQuestion(question *m.QuizQuestion, answers
 	return nil
 }
 
+// GetMaxQuizAttempt gets the maximum attempt number for a specific user and quiz
+func (repo *PgQuizRepository) GetMaxQuizAttempt(userID, quizID int) (int, error) {
+	var maxAttempt int
+
+	_, err := repo.DB.Query(pg.Scan(&maxAttempt),
+		"SELECT COALESCE(MAX(attempt), 0) FROM quiz_submissions WHERE user_id = ? AND quiz_id = ? AND deleted_at IS NULL",
+		userID, quizID)
+
+	if err != nil {
+		repo.Logger.Errorf("Error getting max attempt for user %d and quiz %d: %v", userID, quizID, err)
+		return 0, err
+	}
+
+	return maxAttempt, nil
+}
+
 // SaveQuizSubmission records a user's submission for a quiz question
 func (repo *PgQuizRepository) SaveQuizSubmission(submission *m.QuizSubmission) error {
 	temp := m.QuizSubmission{
@@ -216,6 +232,8 @@ func (repo *PgQuizRepository) SaveQuizSubmission(submission *m.QuizSubmission) e
 		AnswerText:        submission.AnswerText,
 		SelectedAnswerIds: submission.SelectedAnswerIds,
 		Score:             submission.Score,
+		Attempt:           submission.Attempt,
+		Reviewed:          submission.Reviewed,
 	}
 
 	_, err := repo.DB.Model(&temp).Insert()
@@ -249,10 +267,7 @@ func (repo *PgQuizRepository) GetQuizSubmissionsByUser(userID, quizID int) ([]m.
 
 // CreateQuizWithQuestionsAndAnswers handles the multi-step creation of a quiz
 // with questions and answers in a single transaction
-func (repo *PgQuizRepository) CreateQuizWithQuestionsAndAnswers(
-	quizData *param.QuizData,
-	title string) (int, error) {
-
+func (repo *PgQuizRepository) CreateQuizWithQuestionsAndAnswers(quizData *param.QuizData, title string) (int, error) {
 	var quizID int = 0
 
 	txErr := repo.DB.RunInTransaction(func(tx *pg.Tx) error {
