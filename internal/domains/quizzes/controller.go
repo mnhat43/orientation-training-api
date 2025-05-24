@@ -499,6 +499,7 @@ func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 				"correct_answers":  correctAnswersList,
 				"reviewed":         reviewed,
 				"attempt":          currentAttempt,
+				"explanation":      question.Explanation,
 			}
 			submissionDetails = append(submissionDetails, submissionDetail)
 		} else if question.QuestionType == cf.QuestionTypeEssay {
