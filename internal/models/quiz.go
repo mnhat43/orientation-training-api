@@ -19,6 +19,7 @@ type QuizQuestion struct {
 	QuizID            int     `json:"quiz_id" pg:"quiz_id,notnull"`
 	QuestionType      int     `json:"question_type" pg:"question_type,notnull"`
 	QuestionText      string  `json:"question_text" pg:"question_text,notnull"`
+	Explanation       string  `json:"explanation" pg:"explanation"`
 	Weight            float64 `json:"weight" pg:"weight,notnull"`
 	IsMultipleCorrect bool    `json:"is_multiple_correct" pg:"is_multiple_correct,notnull"`
 
@@ -45,4 +46,5 @@ type QuizSubmission struct {
 	Score             float64 `json:"score" pg:"score"`
 	Attempt           int     `json:"attempt" pg:"attempt"`
 	Reviewed          bool    `json:"reviewed" pg:"reviewed,notnull"`
+	Feedback          string  `json:"feedback" pg:"feedback"`
 }
