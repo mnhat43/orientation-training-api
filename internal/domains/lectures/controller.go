@@ -215,7 +215,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 						{
 							"id":            questions[0].ID,
 							"question_text": questions[0].QuestionText,
-							"point":         questions[0].Weight * quiz.TotalScore,
+							"points":        questions[0].Weight * quiz.TotalScore,
 						},
 					},
 				}
@@ -236,7 +236,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 					questionData := map[string]interface{}{
 						"id":             q.ID,
 						"question_text":  q.QuestionText,
-						"point":          q.Weight * quiz.TotalScore,
+						"points":         q.Weight * quiz.TotalScore,
 						"allow_multiple": q.IsMultipleCorrect,
 						"options":        options,
 					}

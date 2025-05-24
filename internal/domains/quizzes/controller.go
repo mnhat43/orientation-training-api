@@ -561,13 +561,34 @@ func (ctr *QuizController) GetQuizResults(c echo.Context) error {
 		})
 	}
 
-	// Determine target user ID
 	targetUserID := userProfile.ID
 	if userProfile.RoleID == cf.ManagerRoleID && getResultsParams.UserID > 0 {
 		targetUserID = getResultsParams.UserID
 	}
 
-	// Get quiz details
+	maxAttempt, err := ctr.QuizRepo.GetMaxQuizAttempt(targetUserID, getResultsParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Error getting max attempt: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to get attempt history",
+		})
+	}
+
+	if maxAttempt == 0 {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.SuccessResponseCode,
+			Message: "No quiz attempts found",
+			Data: map[string]interface{}{
+				"passed": false,
+				"results": map[string]interface{}{
+					"quiz_id": getResultsParams.QuizID,
+					"answers": []map[string]interface{}{},
+				},
+			},
+		})
+	}
+
 	quiz, err := ctr.QuizRepo.GetQuizByID(getResultsParams.QuizID)
 	if err != nil {
 		ctr.Logger.Errorf("Quiz not found: %v", err)
@@ -577,7 +598,20 @@ func (ctr *QuizController) GetQuizResults(c echo.Context) error {
 		})
 	}
 
-	// Get submissions for this user and quiz
+	questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(getResultsParams.QuizID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch quiz questions: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch quiz questions",
+		})
+	}
+
+	questionsMap := make(map[int]m.QuizQuestion)
+	for _, q := range questions {
+		questionsMap[q.ID] = q
+	}
+
 	submissions, err := ctr.QuizRepo.GetQuizSubmissionsByUser(targetUserID, getResultsParams.QuizID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch quiz submissions: %v", err)
@@ -587,26 +621,108 @@ func (ctr *QuizController) GetQuizResults(c echo.Context) error {
 		})
 	}
 
-	// Calculate total score
-	totalScore := 0.0
+	latestAttemptSubmissions := []m.QuizSubmission{}
 	for _, submission := range submissions {
+		if submission.Attempt == maxAttempt {
+			latestAttemptSubmissions = append(latestAttemptSubmissions, submission)
+		}
+	}
+
+	totalScore := 0.0
+	hasEssayQuestions := false
+	allEssaysReviewed := true
+	answers := []map[string]interface{}{}
+
+	for _, submission := range latestAttemptSubmissions {
+		question, exists := questionsMap[submission.QuizQuestionID]
+		if !exists {
+			continue
+		}
+
+		if question.QuestionType == cf.QuestionTypeEssay {
+			hasEssayQuestions = true
+			if !submission.Reviewed {
+				allEssaysReviewed = false
+			}
+
+			answerData := map[string]interface{}{
+				"question_id": submission.QuizQuestionID,
+				"answer_text": submission.AnswerText,
+			}
+			answers = append(answers, answerData)
+		} else if question.QuestionType == cf.QuestionTypeMultipleChoice {
+			isCorrect := false
+			correctAnswerIDs := []int{}
+
+			for _, a := range question.Answers {
+				if a.IsCorrect {
+					correctAnswerIDs = append(correctAnswerIDs, a.ID)
+				}
+			}
+
+			if len(submission.SelectedAnswerIds) == len(correctAnswerIDs) {
+				isCorrect = true
+				selectedMap := make(map[int]bool)
+				for _, id := range submission.SelectedAnswerIds {
+					selectedMap[id] = true
+				}
+
+				for _, id := range correctAnswerIDs {
+					if !selectedMap[id] {
+						isCorrect = false
+						break
+					}
+				}
+			}
+
+			answerData := map[string]interface{}{
+				"question_id":         submission.QuizQuestionID,
+				"selected_answer_ids": submission.SelectedAnswerIds,
+				"is_correct":          isCorrect,
+				"correct_answer_ids":  correctAnswerIDs,
+				"explanation":         question.Explanation,
+				"points":              question.Weight * quiz.TotalScore,
+			}
+			answers = append(answers, answerData)
+		}
+
 		totalScore += submission.Score
 	}
 
-	// Determine if the user passed (assuming 70% is passing)
 	passThreshold := quiz.TotalScore * 0.7
-	passed := totalScore >= passThreshold
+	passed := totalScore >= passThreshold || hasEssayQuestions
+
+	resultsData := map[string]interface{}{
+		"quiz_id": getResultsParams.QuizID,
+		"answers": answers,
+		"attempt": maxAttempt,
+	}
+
+	if !hasEssayQuestions {
+		// Case 1: Multiple choice quiz
+		resultsData["total_score"] = quiz.TotalScore
+		resultsData["user_score"] = totalScore
+	} else if hasEssayQuestions && !allEssaysReviewed {
+		// Case 2: Essay quiz not yet reviewed
+		// No additional fields needed
+	} else if hasEssayQuestions && allEssaysReviewed {
+		// Case 3: Essay quiz with review and feedback
+		resultsData["user_score"] = totalScore
+
+		for _, submission := range latestAttemptSubmissions {
+			if submission.Feedback != "" {
+				resultsData["feedback"] = submission.Feedback
+				break
+			}
+		}
+	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Quiz results retrieved successfully",
 		Data: map[string]interface{}{
-			"quiz":           quiz,
-			"total_score":    totalScore,
-			"max_score":      quiz.TotalScore,
-			"passed":         passed,
-			"pass_threshold": passThreshold,
-			"submissions":    submissions,
+			"passed":  passed,
+			"results": resultsData,
 		},
 	})
 }
