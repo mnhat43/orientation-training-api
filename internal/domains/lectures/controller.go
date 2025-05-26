@@ -6,6 +6,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
+	respond "orientation-training-api/internal/interfaces/respond"
 	m "orientation-training-api/internal/models"
 	cld "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/youtube"
@@ -69,7 +70,6 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		})
 	}
 
-	// Get user progress with explicit userID from authenticated user
 	userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, lectureListParams.CourseID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
@@ -93,198 +93,152 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		})
 	}
 
-	moduleIDs, err := ctr.ModuleRepo.GetModuleIDsByCourseID(lectureListParams.CourseID)
-	if err != nil {
-		ctr.Logger.Errorf("Failed to fetch module IDs: %v", err)
-		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Failed to fetch modules for the course",
-		})
-	}
-
-	moduleItems, err := ctr.ModuleItemRepo.GetModuleItemsByModuleIDs(moduleIDs)
-	if err != nil {
-		ctr.Logger.Errorf("Failed to fetch module items: %v", err)
-		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
-			Status:  cf.FailResponseCode,
-			Message: "Failed to fetch module items",
-		})
-	}
-
-	modulePositions := make(map[int]int)
+	var allModuleItems []m.ModuleItem
 	for _, module := range modules {
-		modulePositions[module.ID] = module.Position
+		moduleItems, err := ctr.ModuleItemRepo.GetModuleItemsByModuleID(module.ID)
+		if err != nil {
+			ctr.Logger.Errorf("Failed to fetch module items for module ID %d: %v", module.ID, err)
+			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Failed to fetch module items",
+			})
+		}
+		allModuleItems = append(allModuleItems, moduleItems...)
 	}
 
-	lectureList := map[string][]map[string]interface{}{}
+	moduleResponses := []respond.LectureModuleResponse{}
+
 	for _, module := range modules {
-		lectureList[module.Title] = []map[string]interface{}{}
-	}
-
-	for _, item := range moduleItems {
-		moduleTitle := ""
-		modulePosition := 0
-
-		for _, module := range modules {
-			if module.ID == item.ModuleID {
-				moduleTitle = module.Title
-				modulePosition = module.Position
-				break
-			}
+		moduleResponse := respond.LectureModuleResponse{
+			ModuleID:       module.ID,
+			ModuleTitle:    module.Title,
+			ModulePosition: module.Position,
+			Duration:       module.Duration,
+			Lectures:       []respond.LectureItemResponse{},
 		}
 
-		isUnlocked := false
-		if modulePosition < currentModulePosition ||
-			(modulePosition == currentModulePosition && item.Position <= currentModuleItemPosition) {
-			isUnlocked = true
-		}
-
-		if item.ItemType == "video" {
-			videoID := item.Resource
-
-			ytService := youtube.NewYouTubeService()
-
-			videoInfo, err := ytService.GetVideoDetails(videoID)
-			if err != nil {
-				ctr.Logger.Errorf("Failed to fetch video details for video ID %s: %v", videoID, err)
+		for _, item := range allModuleItems {
+			if item.ModuleID != module.ID {
 				continue
 			}
 
-			lectureData := map[string]interface{}{
-				"module_item_id":       item.ID,
-				"title":                item.Title,
-				"item_type":            item.ItemType,
-				"module_item_position": item.Position,
-				"module_id":            item.ModuleID,
-				"module_position":      modulePosition,
-				"videoId":              videoID,
-				"thumbnail":            videoInfo.ThumbnailURL,
-				"duration":             videoInfo.Duration,
-				"publishedAt":          videoInfo.PublishedAt,
-				"required_time":        item.RequiredTime,
-				"unlocked":             isUnlocked,
-			}
-			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
-		} else if item.ItemType == "file" {
-			var filePath string
-			if item.Resource != "" {
-				filePath = "https://storage.cloud.google.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource
+			isUnlocked := false
+			if module.Position < currentModulePosition ||
+				(module.Position == currentModulePosition && item.Position <= currentModuleItemPosition) {
+				isUnlocked = true
 			}
 
-			lectureData := map[string]interface{}{
-				"module_item_id":       item.ID,
-				"title":                item.Title,
-				"item_type":            item.ItemType,
-				"module_item_position": item.Position,
-				"module_id":            item.ModuleID,
-				"module_position":      modulePosition,
-				"file_path":            filePath,
-				"required_time":        item.RequiredTime,
-				"duration":             item.RequiredTime,
-				"unlocked":             isUnlocked,
-			}
-			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
-		} else if item.ItemType == "quiz" && item.QuizID > 0 {
-			quiz, err := ctr.QuizRepo.GetQuizByID(item.QuizID)
-			if err != nil {
-				ctr.Logger.Errorf("Failed to fetch quiz details for quiz ID %d: %v", item.QuizID, err)
-				continue
+			lectureItem := respond.LectureItemResponse{
+				ModuleItemID:       item.ID,
+				ModuleItemTitle:    item.Title,
+				ModuleItemPosition: item.Position,
+				ItemType:           item.ItemType,
+				Unlocked:           isUnlocked,
 			}
 
-			questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(item.QuizID)
-			if err != nil {
-				ctr.Logger.Errorf("Failed to fetch quiz questions for quiz ID %d: %v", item.QuizID, err)
-				continue
-			}
+			if item.ItemType == "video" {
+				videoID := item.Resource
+				ytService := youtube.NewYouTubeService()
 
-			quizType := "multiple_choice"
-			var quizData map[string]interface{}
-
-			if len(questions) > 0 && questions[0].QuestionType == cf.QuestionTypeEssay {
-				essayQuestion := questions[0].QuestionText
-				quizType = "essay"
-
-				quizData = map[string]interface{}{
-					"quiz_id":        quiz.ID,
-					"difficulty":     cf.DifficultyLabels[quiz.Difficulty],
-					"score":          quiz.TotalScore,
-					"time_limit":     quiz.TimeLimit,
-					"essay_question": essayQuestion,
-					"quiz_type":      quizType,
-					"questions": []map[string]interface{}{
-						{
-							"id":            questions[0].ID,
-							"question_text": questions[0].QuestionText,
-							"points":        questions[0].Weight * quiz.TotalScore,
-						},
-					},
+				videoInfo, err := ytService.GetVideoDetails(videoID)
+				if err != nil {
+					ctr.Logger.Errorf("Failed to fetch video details for video ID %s: %v. Module ID: %d, ModuleItem ID: %d, Error details: %+v",
+						videoID, err, module.ID, item.ID, err)
+					continue
 				}
-			} else {
-				formattedQuestions := []map[string]interface{}{}
 
-				for _, q := range questions {
-					options := []map[string]interface{}{}
+				videoContent := respond.VideoContentResponse{
+					VideoID:      videoID,
+					Duration:     videoInfo.Duration,
+					RequiredTime: item.RequiredTime,
+					Thumbnail:    videoInfo.ThumbnailURL,
+					PublishedAt:  videoInfo.PublishedAt,
+				}
+				lectureItem.Content = videoContent
+			} else if item.ItemType == "file" {
+				var filePath string
+				if item.Resource != "" {
+					filePath = "https://storage.cloud.google.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource
+				}
 
-					for _, a := range q.Answers {
-						option := map[string]interface{}{
-							"id":   a.ID,
-							"text": a.AnswerText,
+				fileContent := respond.FileContentResponse{
+					FilePath:     filePath,
+					Duration:     item.RequiredTime,
+					RequiredTime: item.RequiredTime,
+				}
+				lectureItem.Content = fileContent
+			} else if item.ItemType == "quiz" && item.QuizID > 0 {
+				quiz, err := ctr.QuizRepo.GetQuizByID(item.QuizID)
+				if err != nil {
+					ctr.Logger.Errorf("Failed to fetch quiz details for quiz ID %d: %v", item.QuizID, err)
+					continue
+				}
+
+				questions, err := ctr.QuizRepo.GetQuizQuestionsWithAnswers(item.QuizID)
+				if err != nil {
+					ctr.Logger.Errorf("Failed to fetch quiz questions for quiz ID %d: %v", item.QuizID, err)
+					continue
+				}
+
+				quizContent := respond.QuizContentResponse{
+					QuizID:     quiz.ID,
+					QuizTitle:  item.Title,
+					Difficulty: cf.DifficultyLabels[quiz.Difficulty],
+					TotalScore: quiz.TotalScore,
+					TimeLimit:  quiz.TimeLimit,
+				}
+
+				if len(questions) > 0 && questions[0].QuestionType == cf.QuestionTypeEssay {
+					quizContent.QuizType = "essay"
+					quizContent.Questions = []respond.QuizQuestionResponse{}
+
+					for _, q := range questions {
+						questionResponse := respond.QuizQuestionResponse{
+							QuestionID:   q.ID,
+							QuestionText: q.QuestionText,
+							Points:       q.Weight * quiz.TotalScore,
+							Options:      []respond.QuizOptionResponse{},
 						}
-						options = append(options, option)
+
+						quizContent.Questions = append(quizContent.Questions, questionResponse)
 					}
+				} else {
+					quizContent.QuizType = "multiple_choice"
+					quizContent.Questions = []respond.QuizQuestionResponse{}
 
-					questionData := map[string]interface{}{
-						"id":             q.ID,
-						"question_text":  q.QuestionText,
-						"points":         q.Weight * quiz.TotalScore,
-						"allow_multiple": q.IsMultipleCorrect,
-						"options":        options,
-					}
+					for _, q := range questions {
+						questionResponse := respond.QuizQuestionResponse{
+							QuestionID:    q.ID,
+							QuestionText:  q.QuestionText,
+							AllowMultiple: q.IsMultipleCorrect,
+							Points:        q.Weight * quiz.TotalScore,
+							Options:       []respond.QuizOptionResponse{},
+						}
 
-					formattedQuestions = append(formattedQuestions, questionData)
-				}
+						for _, a := range q.Answers {
+							option := respond.QuizOptionResponse{
+								ID:   a.ID,
+								Text: a.AnswerText,
+							}
+							questionResponse.Options = append(questionResponse.Options, option)
+						}
 
-				quizData = map[string]interface{}{
-					"quiz_id":    quiz.ID,
-					"title":      quiz.Title,
-					"quiz_type":  quizType,
-					"difficulty": cf.DifficultyLabels[quiz.Difficulty],
-					"score":      quiz.TotalScore,
-					"time_limit": quiz.TimeLimit,
-					"questions":  formattedQuestions,
-				}
-			}
-
-			// Hide correct answers for non-manager users
-			if userProfile.RoleID != cf.ManagerRoleID && quizType == "multiple_choice" {
-				questions := quizData["questions"].([]map[string]interface{})
-				for i := range questions {
-					options := questions[i]["options"].([]map[string]interface{})
-					for j := range options {
-						options[j]["is_correct"] = false
+						quizContent.Questions = append(quizContent.Questions, questionResponse)
 					}
 				}
+
+				lectureItem.Content = quizContent
 			}
 
-			lectureData := map[string]interface{}{
-				"module_item_id":       item.ID,
-				"title":                item.Title,
-				"item_type":            item.ItemType,
-				"module_item_position": item.Position,
-				"module_id":            item.ModuleID,
-				"module_position":      modulePosition,
-				"quiz_id":              item.QuizID,
-				"quiz_data":            quizData,
-				"unlocked":             isUnlocked,
-			}
-
-			lectureList[moduleTitle] = append(lectureList[moduleTitle], lectureData)
+			moduleResponse.Lectures = append(moduleResponse.Lectures, lectureItem)
 		}
+
+		moduleResponses = append(moduleResponses, moduleResponse)
 	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Success",
-		Data:    lectureList,
+		Data:    moduleResponses,
 	})
 }
