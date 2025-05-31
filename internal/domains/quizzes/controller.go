@@ -482,6 +482,7 @@ func (ctr *QuizController) SubmitFullQuiz(c echo.Context) error {
 			Score:             score,
 			Attempt:           currentAttempt,
 			Reviewed:          reviewed,
+			SubmittedAt:       submitParams.SubmittedAt,
 		}
 
 		err = ctr.QuizRepo.SaveQuizSubmission(submission)

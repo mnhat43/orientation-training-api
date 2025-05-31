@@ -47,4 +47,5 @@ type QuizSubmission struct {
 	Attempt           int     `json:"attempt" pg:"attempt"`
 	Reviewed          bool    `json:"reviewed" pg:"reviewed,notnull"`
 	Feedback          string  `json:"feedback" pg:"feedback"`
+	SubmittedAt       string  `json:"submitted_at" pg:"submitted_at,notnull"`
 }

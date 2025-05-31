@@ -67,8 +67,9 @@ type QuizAnswer struct {
 
 // SubmitFullQuizParams defines parameters for submitting a complete quiz with multiple answers
 type SubmitFullQuizParams struct {
-	QuizID  int          `json:"quiz_id" valid:"required"`
-	Answers []QuizAnswer `json:"answers" valid:"required"`
+	QuizID      int          `json:"quiz_id" valid:"required"`
+	Answers     []QuizAnswer `json:"answers" valid:"required"`
+	SubmittedAt string       `json:"submitted_at" valid:"required"`
 }
 
 // GetQuizResultsParams defines parameters for fetching quiz results

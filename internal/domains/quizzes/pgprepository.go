@@ -234,6 +234,7 @@ func (repo *PgQuizRepository) SaveQuizSubmission(submission *m.QuizSubmission) e
 		Score:             submission.Score,
 		Attempt:           submission.Attempt,
 		Reviewed:          submission.Reviewed,
+		SubmittedAt:       submission.SubmittedAt,
 	}
 
 	_, err := repo.DB.Model(&temp).Insert()
