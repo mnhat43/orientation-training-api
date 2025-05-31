@@ -9,4 +9,5 @@ type UserRepository interface {
 	UpdateLastLogin(userID int) error
 	GetUserProfile(id int) (m.User, error)
 	GetUsersByRoleID(roleID int) ([]m.User, error)
+	GetUserProgressByUserID(userID int) ([]m.UserProgress, error)
 }

@@ -62,7 +62,7 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 
 	if userProfile.RoleID == cf.ManagerRoleID {
 		courses, err = ctr.CourseRepo.GetAllCourses()
-	} else if userProfile.RoleID == cf.TraineeRoleID {
+	} else if userProfile.RoleID == cf.EmployeeRoleID {
 		courses, err = ctr.CourseRepo.GetUserCourses(userProfile.ID)
 	} else {
 		courses, err = ctr.CourseRepo.GetAllCourses()
@@ -105,7 +105,7 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),
 		}
 
-		if userProfile.RoleID == cf.TraineeRoleID {
+		if userProfile.RoleID == cf.EmployeeRoleID {
 			userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, course.ID)
 			if err == nil && userProgress.ID > 0 {
 				itemDataResponse["course_position"] = userProgress.CoursePosition

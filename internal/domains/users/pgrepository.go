@@ -2,6 +2,7 @@ package users
 
 import (
 	cm "orientation-training-api/internal/common"
+	"orientation-training-api/internal/models"
 	"orientation-training-api/internal/platform/utils"
 
 	m "orientation-training-api/internal/models"
@@ -77,4 +78,14 @@ func (repo *PgUserRepository) GetUsersByRoleID(roleID int) ([]m.User, error) {
 	}
 
 	return users, err
+}
+
+// GetUserProgressByUserID retrieves all user progress entries for a specific user
+func (repo *PgUserRepository) GetUserProgressByUserID(userID int) ([]models.UserProgress, error) {
+	var userProgresses []models.UserProgress
+	err := repo.DB.Model(&userProgresses).
+		Where("user_id = ?", userID).
+		Where("deleted_at IS NULL").
+		Select()
+	return userProgresses, err
 }

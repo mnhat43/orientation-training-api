@@ -286,7 +286,7 @@ func (ctr *UserProgressController) GetListTraineeByCourseID(c echo.Context) erro
 		})
 	}
 
-	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.TraineeRoleID)
+	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.EmployeeRoleID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch trainees: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{

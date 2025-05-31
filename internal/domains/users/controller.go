@@ -5,6 +5,7 @@ import (
 	cf "orientation-training-api/configs"
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
+	resp "orientation-training-api/internal/interfaces/response"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-pg/pg"
@@ -77,7 +78,7 @@ func (ctr *UserController) GetLoginUser(c echo.Context) error {
 // Params: echo.Context
 // Returns: error
 func (ctr *UserController) GetListTrainee(c echo.Context) error {
-	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.TraineeRoleID)
+	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.EmployeeRoleID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch trainees: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
@@ -116,5 +117,69 @@ func (ctr *UserController) GetListTrainee(c echo.Context) error {
 		Status:  cf.SuccessResponseCode,
 		Message: "Trainee list retrieved successfully",
 		Data:    traineeList,
+	})
+}
+
+// GetEmployeeOverview retrieves an overview of employees
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) GetEmployeeOverview(c echo.Context) error {
+	employees, err := ctr.UserRepo.GetUsersByRoleID(cf.EmployeeRoleID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch employees: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch employees",
+		})
+	}
+
+	employeeList := []resp.EmployeeOverview{}
+
+	for _, employee := range employees {
+		userProgresses, err := ctr.UserRepo.GetUserProgressByUserID(employee.ID)
+		if err != nil && err.Error() != pg.ErrNoRows.Error() {
+			ctr.Logger.Errorf("Failed to fetch user progress for user ID %d: %v", employee.ID, err)
+			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Failed to fetch user progress",
+			})
+		}
+
+		var status string
+		if len(userProgresses) == 0 {
+			status = resp.StatusNotAssigned
+		} else {
+			allCompleted := true
+			for _, progress := range userProgresses {
+				if !progress.Completed {
+					allCompleted = false
+					break
+				}
+			}
+
+			if allCompleted {
+				status = resp.StatusCompleted
+			} else {
+				status = resp.StatusInProgress
+			}
+		}
+
+		employeeInfo := resp.EmployeeOverview{
+			UserID:      employee.ID,
+			Fullname:    employee.UserProfile.FirstName + " " + employee.UserProfile.LastName,
+			Email:       employee.Email,
+			PhoneNumber: employee.UserProfile.PhoneNumber,
+			Avatar:      employee.UserProfile.Avatar,
+			Department:  employee.UserProfile.Department,
+			Status:      status,
+		}
+
+		employeeList = append(employeeList, employeeInfo)
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Employee overview retrieved successfully",
+		Data:    employeeList,
 	})
 }

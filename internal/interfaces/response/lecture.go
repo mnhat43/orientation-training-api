@@ -1,4 +1,4 @@
-package respond
+package response
 
 // LectureModuleResponse represents a module with its lectures
 type LectureModuleResponse struct {

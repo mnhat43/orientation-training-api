@@ -6,7 +6,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
-	respond "orientation-training-api/internal/interfaces/respond"
+	response "orientation-training-api/internal/interfaces/response"
 	m "orientation-training-api/internal/models"
 	cld "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/youtube"
@@ -106,15 +106,15 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 		allModuleItems = append(allModuleItems, moduleItems...)
 	}
 
-	moduleResponses := []respond.LectureModuleResponse{}
+	moduleResponses := []response.LectureModuleResponse{}
 
 	for _, module := range modules {
-		moduleResponse := respond.LectureModuleResponse{
+		moduleResponse := response.LectureModuleResponse{
 			ModuleID:       module.ID,
 			ModuleTitle:    module.Title,
 			ModulePosition: module.Position,
 			Duration:       module.Duration,
-			Lectures:       []respond.LectureItemResponse{},
+			Lectures:       []response.LectureItemResponse{},
 		}
 
 		for _, item := range allModuleItems {
@@ -128,7 +128,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 				isUnlocked = true
 			}
 
-			lectureItem := respond.LectureItemResponse{
+			lectureItem := response.LectureItemResponse{
 				ModuleItemID:       item.ID,
 				ModuleItemTitle:    item.Title,
 				ModuleItemPosition: item.Position,
@@ -147,7 +147,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 					continue
 				}
 
-				videoContent := respond.VideoContentResponse{
+				videoContent := response.VideoContentResponse{
 					VideoID:      videoID,
 					Duration:     videoInfo.Duration,
 					RequiredTime: item.RequiredTime,
@@ -161,7 +161,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 					filePath = "https://storage.cloud.google.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource
 				}
 
-				fileContent := respond.FileContentResponse{
+				fileContent := response.FileContentResponse{
 					FilePath:     filePath,
 					Duration:     item.RequiredTime,
 					RequiredTime: item.RequiredTime,
@@ -180,7 +180,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 					continue
 				}
 
-				quizContent := respond.QuizContentResponse{
+				quizContent := response.QuizContentResponse{
 					QuizID:     quiz.ID,
 					QuizTitle:  item.Title,
 					Difficulty: cf.DifficultyLabels[quiz.Difficulty],
@@ -190,33 +190,33 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 
 				if len(questions) > 0 && questions[0].QuestionType == cf.QuestionTypeEssay {
 					quizContent.QuizType = "essay"
-					quizContent.Questions = []respond.QuizQuestionResponse{}
+					quizContent.Questions = []response.QuizQuestionResponse{}
 
 					for _, q := range questions {
-						questionResponse := respond.QuizQuestionResponse{
+						questionResponse := response.QuizQuestionResponse{
 							QuestionID:   q.ID,
 							QuestionText: q.QuestionText,
 							Points:       q.Weight * quiz.TotalScore,
-							Options:      []respond.QuizOptionResponse{},
+							Options:      []response.QuizOptionResponse{},
 						}
 
 						quizContent.Questions = append(quizContent.Questions, questionResponse)
 					}
 				} else {
 					quizContent.QuizType = "multiple_choice"
-					quizContent.Questions = []respond.QuizQuestionResponse{}
+					quizContent.Questions = []response.QuizQuestionResponse{}
 
 					for _, q := range questions {
-						questionResponse := respond.QuizQuestionResponse{
+						questionResponse := response.QuizQuestionResponse{
 							QuestionID:    q.ID,
 							QuestionText:  q.QuestionText,
 							AllowMultiple: q.IsMultipleCorrect,
 							Points:        q.Weight * quiz.TotalScore,
-							Options:       []respond.QuizOptionResponse{},
+							Options:       []response.QuizOptionResponse{},
 						}
 
 						for _, a := range q.Answers {
-							option := respond.QuizOptionResponse{
+							option := response.QuizOptionResponse{
 								ID:   a.ID,
 								Text: a.AnswerText,
 							}
