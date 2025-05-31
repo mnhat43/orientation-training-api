@@ -89,3 +89,58 @@ func (repo *PgUserRepository) GetUserProgressByUserID(userID int) ([]models.User
 		Select()
 	return userProgresses, err
 }
+
+// CheckEmailExists checks if an email already exists in the database
+func (repo *PgUserRepository) CheckEmailExists(email string) (bool, error) {
+	count, err := repo.DB.Model(&m.User{}).
+		Where("email = ?", email).
+		Where("deleted_at is null").
+		Count()
+
+	if err != nil {
+		repo.Logger.Errorf("Error checking email existence: %+v", err)
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// CreateUser creates a new user with profile information
+func (repo *PgUserRepository) CreateUser(user m.User) (int, error) {
+	tx, err := repo.DB.Begin()
+	if err != nil {
+		repo.Logger.Errorf("Error starting transaction: %+v", err)
+		return 0, err
+	}
+
+	// Set creation time
+	now := utils.TimeNowUTC()
+	user.CreatedAt = now
+	user.UpdatedAt = now
+
+	// Insert user
+	if err := tx.Insert(&user); err != nil {
+		tx.Rollback()
+		repo.Logger.Errorf("Error inserting user: %+v", err)
+		return 0, err
+	}
+
+	// Set user ID and creation time for profile
+	user.UserProfile.UserID = user.ID
+	user.UserProfile.CreatedAt = now
+	user.UserProfile.UpdatedAt = now
+
+	// Insert user profile
+	if err := tx.Insert(&user.UserProfile); err != nil {
+		tx.Rollback()
+		repo.Logger.Errorf("Error inserting user profile: %+v", err)
+		return 0, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		repo.Logger.Errorf("Error committing transaction: %+v", err)
+		return 0, err
+	}
+
+	return user.ID, nil
+}

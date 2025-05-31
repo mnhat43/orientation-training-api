@@ -71,7 +71,7 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningKey: []byte(keyTokenAuth),
 	})
-
+	g.POST("/register", r.userCtr.Register)
 	g.GET("/profile", r.userCtr.GetLoginUser, isLoggedIn)
 	g.POST("/list-trainee", r.userCtr.GetListTrainee, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 
