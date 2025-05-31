@@ -166,7 +166,7 @@ func (r *AppRouter) TemplatePathRoute(g *echo.Group) {
 	g.POST("/delete-template-path", r.templatePathCtr.DeleteTemplatePath, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
 
-func (r *AppRouter) QuizPathRoute(g *echo.Group) {
+func (r *AppRouter) QuizRoute(g *echo.Group) {
 	keyTokenAuth := utils.GetKeyToken()
 	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningKey: []byte(keyTokenAuth),
