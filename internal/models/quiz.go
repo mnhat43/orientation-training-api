@@ -49,9 +49,11 @@ type QuizSubmission struct {
 	Reviewed          bool    `json:"reviewed" pg:"reviewed,notnull"`
 	Feedback          string  `json:"feedback" pg:"feedback"`
 	SubmittedAt       string  `json:"submitted_at" pg:"submitted_at,notnull"`
+	ReviewedBy        int     `json:"reviewed_by" pg:"reviewed_by"`
 
 	// Relationships
 	User         User         `json:"user" pg:"rel:belongs-to"`
 	Quiz         Quiz         `json:"quiz" pg:"rel:belongs-to"`
 	QuizQuestion QuizQuestion `json:"quiz_question" pg:"rel:belongs-to"`
+	Reviewer     User         `json:"reviewer" pg:"rel:belongs-to,fk:reviewed_by"`
 }
