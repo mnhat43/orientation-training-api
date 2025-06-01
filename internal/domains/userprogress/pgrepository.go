@@ -42,14 +42,18 @@ func (repo *PgUserProgressRepository) SaveUserProgress(userProgress *m.UserProgr
 		repo.Logger.Errorf("Error checking if user progress exists: %v", err)
 		return err
 	}
-
 	if exists {
-		_, err = repo.DB.Model(userProgress).
+		query := repo.DB.Model(userProgress).
 			Set("module_position = ?", userProgress.ModulePosition).
 			Set("module_item_position = ?", userProgress.ModuleItemPosition).
 			Set("completed = ?", userProgress.Completed).
-			Set("updated_at = NOW()").
-			Where("user_id = ?", userProgress.UserID).
+			Set("updated_at = NOW()")
+
+		if userProgress.CompletedDate != "" {
+			query = query.Set("completed_date = ?", userProgress.CompletedDate)
+		}
+
+		_, err = query.Where("user_id = ?", userProgress.UserID).
 			Where("course_id = ?", userProgress.CourseID).
 			Where("deleted_at IS NULL").
 			Update()

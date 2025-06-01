@@ -78,6 +78,7 @@ func (ctr *UserProgressController) UpdateUserProgress(c echo.Context) error {
 		userProgress.ModulePosition = currentProgress.ModulePosition
 		userProgress.ModuleItemPosition = currentProgress.ModuleItemPosition
 		userProgress.Completed = true
+		userProgress.CompletedDate = updateUserProgressParams.CompletedDate
 	} else {
 		userProgress.ModulePosition = updateUserProgressParams.ModulePosition
 		userProgress.ModuleItemPosition = updateUserProgressParams.ModuleItemPosition

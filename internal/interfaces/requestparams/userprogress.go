@@ -8,12 +8,13 @@ type GetUserProgressParams struct {
 
 // UpdateUserProgressParams defines parameters for updating user progress
 type UpdateUserProgressParams struct {
-	CourseID           int  `json:"course_id" valid:"required"`
-	UserID             int  `json:"user_id"`
-	CoursePosition     int  `json:"course_position"`
-	ModulePosition     int  `json:"module_position"`
-	ModuleItemPosition int  `json:"module_item_position"`
-	Completed          bool `json:"completed"`
+	CourseID           int    `json:"course_id" valid:"required"`
+	UserID             int    `json:"user_id"`
+	CoursePosition     int    `json:"course_position"`
+	ModulePosition     int    `json:"module_position"`
+	ModuleItemPosition int    `json:"module_item_position"`
+	Completed          bool   `json:"completed"`
+	CompletedDate      string `json:"completed_date"`
 }
 
 // CreateUserProgressParams defines parameters for creating new user progress
