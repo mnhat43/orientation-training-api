@@ -25,6 +25,7 @@ type QuizQuestion struct {
 
 	// Relationships
 	Answers []QuizAnswer `json:"answers" pg:"rel:has-many"`
+	Quiz    Quiz         `json:"quiz" pg:"rel:belongs-to"`
 }
 
 type QuizAnswer struct {
@@ -48,4 +49,9 @@ type QuizSubmission struct {
 	Reviewed          bool    `json:"reviewed" pg:"reviewed,notnull"`
 	Feedback          string  `json:"feedback" pg:"feedback"`
 	SubmittedAt       string  `json:"submitted_at" pg:"submitted_at,notnull"`
+
+	// Relationships
+	User         User         `json:"user" pg:"rel:belongs-to"`
+	Quiz         Quiz         `json:"quiz" pg:"rel:belongs-to"`
+	QuizQuestion QuizQuestion `json:"quiz_question" pg:"rel:belongs-to"`
 }

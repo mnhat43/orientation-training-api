@@ -6,6 +6,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
+	"orientation-training-api/internal/interfaces/response"
 	m "orientation-training-api/internal/models"
 
 	valid "github.com/asaskevich/govalidator"
@@ -726,5 +727,69 @@ func (ctr *QuizController) GetQuizResults(c echo.Context) error {
 			"passed":  passed,
 			"results": resultsData,
 		},
+	})
+}
+
+// GetQuizPendingReview retrieves quizzes that are pending review
+func (ctr *QuizController) GetQuizPendingReview(c echo.Context) error {
+	submissions, err := ctr.QuizRepo.GetEssaySubmissionsPendingReview()
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch pending review submissions: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch pending review submissions",
+		})
+	}
+
+	if len(submissions) == 0 {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.SuccessResponseCode,
+			Message: "No pending reviews found",
+			Data:    []response.PendingReviewResponse{},
+		})
+	}
+
+	userSubmissionsMap := make(map[int][]m.QuizSubmission)
+	for _, submission := range submissions {
+		userSubmissionsMap[submission.UserID] = append(userSubmissionsMap[submission.UserID], submission)
+	}
+
+	var pendingReviews []response.PendingReviewResponse
+
+	for _, userSubmissions := range userSubmissionsMap {
+		if len(userSubmissions) == 0 {
+			continue
+		}
+
+		user := userSubmissions[0].User
+
+		review := response.PendingReviewResponse{
+			UserID:     user.ID,
+			Fullname:   user.UserProfile.FirstName + " " + user.UserProfile.LastName,
+			Department: user.UserProfile.Department,
+			Avatar:     user.UserProfile.Avatar,
+			Reviews:    []response.PendingReviewItem{},
+		}
+
+		for _, submission := range userSubmissions {
+			reviewItem := response.PendingReviewItem{
+				SubmissionID: submission.ID,
+				CourseTitle:  submission.Quiz.Title,
+				QuestionText: submission.QuizQuestion.QuestionText,
+				AnswerText:   submission.AnswerText,
+				SubmittedAt:  submission.SubmittedAt,
+				MaxScore:     submission.Quiz.TotalScore,
+			}
+
+			review.Reviews = append(review.Reviews, reviewItem)
+		}
+
+		pendingReviews = append(pendingReviews, review)
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Pending reviews retrieved successfully",
+		Data:    pendingReviews,
 	})
 }

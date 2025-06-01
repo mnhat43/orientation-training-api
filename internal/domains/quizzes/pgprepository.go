@@ -323,6 +323,31 @@ func (repo *PgQuizRepository) CreateQuizWithQuestionsAndAnswers(quizData *param.
 		repo.Logger.Errorf("Transaction failed during quiz creation: %v", txErr)
 		return 0, txErr
 	}
-
 	return quizID, nil
+}
+
+// GetEssaySubmissionsPendingReview retrieves essay submissions that need review
+func (repo *PgQuizRepository) GetEssaySubmissionsPendingReview() ([]m.QuizSubmission, error) {
+	var submissions []m.QuizSubmission
+
+	err := repo.DB.Model(&submissions).
+		Relation("User").
+		Relation("User.UserProfile").
+		Relation("QuizQuestion").
+		Relation("Quiz").
+		Where("\"user\".role_id = ?", cf.EmployeeRoleID).
+		Where("quiz_question.question_type = ?", cf.QuesEssay).
+		Where("quiz_submission.reviewed = false").
+		Where("(quiz_submission.feedback IS NULL OR quiz_submission.feedback = '')").
+		Where("quiz_submission.deleted_at IS NULL").
+		Order("quiz_submission.user_id ASC").
+		Order("quiz_submission.submitted_at DESC").
+		Select()
+
+	if err != nil {
+		repo.Logger.Errorf("Error fetching essay submissions pending review: %v", err)
+		return nil, err
+	}
+
+	return submissions, nil
 }

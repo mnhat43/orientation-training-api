@@ -16,4 +16,5 @@ type QuizRepository interface {
 	GetQuizSubmissionsByUser(userID int, quizID int) ([]m.QuizSubmission, error)
 	CreateQuizWithQuestionsAndAnswers(quizData *param.QuizData, title string) (int, error)
 	GetMaxQuizAttempt(userID int, quizID int) (int, error)
+	GetEssaySubmissionsPendingReview() ([]m.QuizSubmission, error)
 }

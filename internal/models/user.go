@@ -15,8 +15,8 @@ type User struct {
 	RoleID        int
 	LastLoginTime time.Time
 
-	UserProfile UserProfile
-	Role        UserRole `pg:",fk:role_id"`
+	UserProfile UserProfile `pg:"rel:has-one"`
+	Role        UserRole    `pg:"rel:belongs-to,fk:role_id"`
 	// TargetEvaluation []TargetEvaluation `pg:",fk:user_id"`
 
 }
