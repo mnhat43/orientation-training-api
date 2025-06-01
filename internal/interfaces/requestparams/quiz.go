@@ -77,3 +77,10 @@ type GetQuizResultsParams struct {
 	QuizID int `json:"quiz_id" valid:"required"`
 	UserID int `json:"user_id"` // Only used by managers
 }
+
+// ReviewEssaySubmissionParams defines parameters for reviewing an essay submission
+type ReviewEssaySubmissionParams struct {
+	SubmissionID int     `json:"submission_id" valid:"required"`
+	Score        float64 `json:"score" valid:"required"`
+	Feedback     string  `json:"feedback"`
+}

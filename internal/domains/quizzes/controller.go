@@ -793,3 +793,46 @@ func (ctr *QuizController) GetQuizPendingReview(c echo.Context) error {
 		Data:    pendingReviews,
 	})
 }
+
+// ReviewEssaySubmission reviews an essay submission
+func (ctr *QuizController) ReviewEssaySubmission(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+
+	reviewParams := new(param.ReviewEssaySubmissionParams)
+	if err := c.Bind(reviewParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(reviewParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	err := ctr.QuizRepo.ReviewEssaySubmission(
+		reviewParams.SubmissionID,
+		reviewParams.Score,
+		reviewParams.Feedback,
+		userProfile.ID,
+	)
+
+	if err != nil {
+		ctr.Logger.Errorf("Failed to review essay submission: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to review essay submission",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Essay submission reviewed successfully",
+	})
+}

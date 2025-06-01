@@ -351,3 +351,22 @@ func (repo *PgQuizRepository) GetEssaySubmissionsPendingReview() ([]m.QuizSubmis
 
 	return submissions, nil
 }
+
+// ReviewEssaySubmission updates an essay submission with review information
+func (repo *PgQuizRepository) ReviewEssaySubmission(submissionID int, score float64, feedback string, reviewerID int) error {
+	_, err := repo.DB.Model(&m.QuizSubmission{}).
+		Set("score = ?", score).
+		Set("feedback = ?", feedback).
+		Set("reviewed = true").
+		Set("reviewed_by = ?", reviewerID).
+		Where("id = ?", submissionID).
+		Where("deleted_at IS NULL").
+		Update()
+
+	if err != nil {
+		repo.Logger.Errorf("Error updating essay submission review: %v", err)
+		return err
+	}
+
+	return nil
+}

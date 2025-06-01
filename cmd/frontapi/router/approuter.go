@@ -186,4 +186,5 @@ func (r *AppRouter) QuizRoute(g *echo.Group) {
 	g.POST("/result", r.quizCtr.GetQuizResults, isLoggedIn, r.userMw.InitUserProfile)
 
 	g.GET("/pending-review", r.quizCtr.GetQuizPendingReview, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/review-essay", r.quizCtr.ReviewEssaySubmission, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
