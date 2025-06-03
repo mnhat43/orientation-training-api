@@ -16,4 +16,5 @@ type ModuleItem struct {
 	QuizID       int    `pg:"quiz_id,null" json:"quiz_id,omitempty"`
 
 	Module Module `pg:"rel:has-one"`
+	Quiz   *Quiz  `pg:"rel:has-one,fk:quiz_id" json:"quiz,omitempty"`
 }

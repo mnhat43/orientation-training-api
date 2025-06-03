@@ -370,3 +370,29 @@ func (repo *PgQuizRepository) ReviewEssaySubmission(submissionID int, score floa
 
 	return nil
 }
+
+// GetPendingEssayReviewsCountForCourse returns the count of unreviewed essay quizzes for a specific course and user
+func (repo *PgQuizRepository) GetPendingEssayReviewsCountForCourse(userID int, courseID int) (int, error) {
+	count, err := repo.DB.Model(&m.QuizSubmission{}).
+		Join("JOIN quiz_questions qc ON qc.id = quiz_submission.quiz_question_id").
+		Join("JOIN quizzes q ON q.id = quiz_submission.quiz_id").
+		Join("JOIN module_items mi ON mi.quiz_id = q.id").
+		Join("JOIN modules m ON m.id = mi.module_id").
+		Where("quiz_submission.user_id = ?", userID).
+		Where("m.course_id = ?", courseID).
+		Where("qc.question_type = ?", cf.QuesEssay).
+		Where("quiz_submission.reviewed = false").
+		Where("quiz_submission.deleted_at IS NULL").
+		Where("qc.deleted_at IS NULL").
+		Where("q.deleted_at IS NULL").
+		Where("mi.deleted_at IS NULL").
+		Where("m.deleted_at IS NULL").
+		Count()
+
+	if err != nil {
+		repo.Logger.Errorf("Error counting pending essay reviews for user %d, course %d: %v", userID, courseID, err)
+		return 0, err
+	}
+
+	return count, nil
+}

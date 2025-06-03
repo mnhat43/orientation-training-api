@@ -33,6 +33,10 @@ type DeleteUserParams struct {
 	UserId int `json:"user_id" valid:"required"`
 }
 
+type EmployeeDetailParams struct {
+	UserID int `json:"user_id" valid:"required"`
+}
+
 type RegisterParams struct {
 	FirstName      string `json:"first_name" validate:"required"`
 	LastName       string `json:"last_name" validate:"required"`

@@ -81,13 +81,17 @@ func (repo *PgUserProgressRepository) GetUserProgressByCourseID(courseID int) ([
 }
 
 // GetAllUserProgressByUserID retrieves all user progress records for a specific user
+// including related reviewer and course data
 func (repo *PgUserProgressRepository) GetAllUserProgressByUserID(userID int) ([]m.UserProgress, error) {
 	var userProgressList []m.UserProgress
 
 	err := repo.DB.Model(&userProgressList).
-		Where("user_id = ?", userID).
-		Where("deleted_at IS NULL").
-		Order("course_position ASC").
+		Relation("Reviewer").
+		Relation("Reviewer.UserProfile").
+		Relation("Course").
+		Where("user_progress.user_id = ?", userID).
+		Where("user_progress.deleted_at IS NULL").
+		Order("user_progress.course_position ASC").
 		Select()
 
 	if err != nil {

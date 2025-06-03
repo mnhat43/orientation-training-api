@@ -72,9 +72,10 @@ func (repo *PgModuleItemRepository) DeleteModuleItem(moduleItemID int) error {
 func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int) ([]m.ModuleItem, error) {
 	moduleItems := []m.ModuleItem{}
 	err := repo.DB.Model(&moduleItems).
-		Where("module_id IN (?)", pg.In(moduleIDs)).
-		Where("deleted_at is null").
-		Order("position ASC").
+		Relation("Quiz").
+		Where("module_item.module_id IN (?)", pg.In(moduleIDs)).
+		Where("module_item.deleted_at is null").
+		Order("module_item.position ASC").
 		Select()
 	if err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int) (
 func (repo *PgModuleItemRepository) GetModuleItemsByModuleID(moduleID int) ([]m.ModuleItem, error) {
 	moduleItems := []m.ModuleItem{}
 	err := repo.DB.Model(&moduleItems).
+		Relation("Quiz").
 		Where("module_id = ?", moduleID).
 		Where("deleted_at is null").
 		Order("position ASC").

@@ -18,4 +18,5 @@ type QuizRepository interface {
 	GetMaxQuizAttempt(userID int, quizID int) (int, error)
 	GetEssaySubmissionsPendingReview() ([]m.QuizSubmission, error)
 	ReviewEssaySubmission(submissionID int, score float64, feedback string, reviewerID int) error
+	GetPendingEssayReviewsCountForCourse(userID int, courseID int) (int, error)
 }

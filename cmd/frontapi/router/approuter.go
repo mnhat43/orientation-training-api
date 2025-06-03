@@ -51,7 +51,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
-		userCtr:         u.NewUserController(logger, userRepo),
+		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo),
 		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, quizRepo, gcsStorage),
@@ -76,6 +76,7 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 	g.POST("/list-trainee", r.userCtr.GetListTrainee, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 
 	g.GET("/employee-overview", r.userCtr.GetEmployeeOverview, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/employee-detail", r.userCtr.EmployeeDetail, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
 
 func (r *AppRouter) AuthRoute(g *echo.Group) {

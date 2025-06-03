@@ -95,3 +95,19 @@ func (repo *PgModuleRepository) GetModulesByCourseID(courseID int) ([]m.Module, 
 	}
 	return modules, nil
 }
+
+// GetModuleByPositionAndCourse retrieves a module by its course ID and position
+// Params: courseID, position
+// GetModuleByPositionAndCourse returns a module with a specific position in a course
+// Returns: module and error
+func (repo *PgModuleRepository) GetModuleByPositionAndCourse(courseID int, position int) (m.Module, error) {
+	module := m.Module{}
+	// Using a relation would require defining the relation in the Module model first
+	err := repo.DB.Model(&module).
+		Where("course_id = ?", courseID).
+		Where("position = ?", position).
+		Where("deleted_at is null").
+		First()
+
+	return module, err
+}

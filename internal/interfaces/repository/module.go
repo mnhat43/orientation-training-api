@@ -12,4 +12,5 @@ type ModuleRepository interface {
 	DeleteModule(moduleID int) error
 	GetModuleIDsByCourseID(courseID int) ([]int, error)
 	GetModulesByCourseID(courseID int) ([]m.Module, error)
+	GetModuleByPositionAndCourse(courseID int, position int) (m.Module, error)
 }
