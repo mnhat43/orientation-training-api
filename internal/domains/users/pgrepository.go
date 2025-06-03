@@ -113,24 +113,20 @@ func (repo *PgUserRepository) CreateUser(user m.User) (int, error) {
 		return 0, err
 	}
 
-	// Set creation time
 	now := utils.TimeNowUTC()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
-	// Insert user
 	if err := tx.Insert(&user); err != nil {
 		tx.Rollback()
 		repo.Logger.Errorf("Error inserting user: %+v", err)
 		return 0, err
 	}
 
-	// Set user ID and creation time for profile
 	user.UserProfile.UserID = user.ID
 	user.UserProfile.CreatedAt = now
 	user.UserProfile.UpdatedAt = now
 
-	// Insert user profile
 	if err := tx.Insert(&user.UserProfile); err != nil {
 		tx.Rollback()
 		repo.Logger.Errorf("Error inserting user profile: %+v", err)

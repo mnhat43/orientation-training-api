@@ -289,7 +289,6 @@ func (ctr *UserController) GetEmployeeOverview(c echo.Context) error {
 // Params: echo.Context
 // Returns: error
 func (ctr *UserController) EmployeeDetail(c echo.Context) error {
-	// Get employee detail params
 	employeeDetailParams := new(param.EmployeeDetailParams)
 	if err := c.Bind(employeeDetailParams); err != nil {
 		ctr.Logger.Errorf("Failed to bind params: %v", err)
@@ -308,7 +307,6 @@ func (ctr *UserController) EmployeeDetail(c echo.Context) error {
 		})
 	}
 
-	// Get user info
 	employee, err := ctr.UserRepo.GetUserProfile(employeeDetailParams.UserID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch employee details: %v", err)
@@ -318,7 +316,6 @@ func (ctr *UserController) EmployeeDetail(c echo.Context) error {
 		})
 	}
 
-	// Get user progress for all courses
 	userProgresses, err := ctr.UserProgressRepo.GetAllUserProgressByUserID(employeeDetailParams.UserID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
@@ -327,7 +324,6 @@ func (ctr *UserController) EmployeeDetail(c echo.Context) error {
 			Message: "Failed to fetch user progress",
 		})
 	}
-	// Prepare response
 	response := buildEmployeeDetailResponse(employee, userProgresses, ctr.CourseRepo, ctr.ModuleRepo, ctr.ModuleItemRepo, ctr.QuizRepo, ctr.Logger)
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
@@ -337,7 +333,6 @@ func (ctr *UserController) EmployeeDetail(c echo.Context) error {
 	})
 }
 
-// buildEmployeeDetailResponse creates a structured response for employee details
 func buildEmployeeDetailResponse(
 	employee m.User,
 	userProgresses []m.UserProgress,
@@ -347,7 +342,6 @@ func buildEmployeeDetailResponse(
 	quizRepo rp.QuizRepository,
 	logger echo.Logger,
 ) resp.EmployeeDetail {
-	// Prepare user info
 	userInfo := resp.UserInfo{
 		ID:          employee.ID,
 		Fullname:    employee.UserProfile.FirstName + " " + employee.UserProfile.LastName,
@@ -358,47 +352,37 @@ func buildEmployeeDetailResponse(
 		JoinedDate:  employee.UserProfile.CompanyJoinedDate.Format(cf.FormatDateDatabase),
 	}
 
-	// We only need to consider courses in the user's training path (from UserProgress)
 	totalCourses := len(userProgresses)
 
-	// Initialize process info
 	processInfo := []resp.CourseInfo{}
 	completedCourses := 0
 	totalUserScore := float64(0)
 	totalMaxScore := float64(0)
 	latestCompletionDate := ""
 
-	// Create a map for quicker course lookup
 	courseMap := make(map[int]m.Course)
 
-	// Get course details for all courses in user progresses
 	for _, progress := range userProgresses {
-		// Try to get course details via Course relation
 		if progress.Course != nil {
 			courseMap[progress.CourseID] = *progress.Course
 			continue
 		}
 
-		// If not available via relation, fetch individually
 		course, err := courseRepo.GetCourseByID(progress.CourseID)
 		if err != nil {
 			logger.Errorf("Failed to fetch course %d: %v", progress.CourseID, err)
-			// Create minimal course info with ID from BaseModel
 			course = m.Course{}
 			course.ID = progress.CourseID
 			course.Title = fmt.Sprintf("Course %d", progress.CourseID)
 		}
 		courseMap[progress.CourseID] = course
 
-		// Track completion date
 		if progress.Completed && progress.CompletedDate > latestCompletionDate {
 			latestCompletionDate = progress.CompletedDate
 		}
 	}
 
-	// Process each course progress to build the process info
 	for _, progress := range userProgresses {
-		// Get course details from our map
 		course, exists := courseMap[progress.CourseID]
 		if !exists {
 			logger.Errorf("Course %d not found in map, skipping", progress.CourseID)
@@ -409,7 +393,6 @@ func buildEmployeeDetailResponse(
 			CourseTitle: course.Title,
 		}
 
-		// Calculate pending essay reviews for this course (both completed and in-progress)
 		pendingReviews, err := quizRepo.GetPendingEssayReviewsCountForCourse(employee.ID, course.ID)
 		if err != nil {
 			logger.Errorf("Failed to get pending reviews count for course %d, user %d: %v", course.ID, employee.ID, err)
@@ -419,7 +402,6 @@ func buildEmployeeDetailResponse(
 		}
 
 		if progress.Completed {
-			// Course is completed
 			completedCourses++
 			courseInfo.Status = "completed"
 			courseInfo.CompletedDate = progress.CompletedDate
@@ -431,13 +413,11 @@ func buildEmployeeDetailResponse(
 					PerformanceComment: progress.PerformanceComment,
 				}
 
-				// Get reviewer name
 				if progress.ReviewedBy > 0 {
 					courseInfo.Assessment.ReviewerName = progress.Reviewer.UserProfile.FirstName + " " + progress.Reviewer.UserProfile.LastName
 				}
 			}
 
-			// Calculate quiz scores for this course
 			userScore, maxScore := calculateCourseQuizScores(course.ID, employee.ID, moduleRepo, moduleItemRepo, quizRepo, logger)
 			courseInfo.UserScore = userScore
 			courseInfo.TotalScore = maxScore
@@ -445,15 +425,11 @@ func buildEmployeeDetailResponse(
 			totalUserScore += userScore
 			totalMaxScore += maxScore
 		} else {
-			// Course is in progress
 			courseInfo.Status = "in_progress"
-			// Calculate progress percentage based on module positions
 			progressPercent := calculateCourseProgress(progress, moduleRepo, moduleItemRepo, logger)
 			courseInfo.Progress = progressPercent
 
-			// Set current module information directly from the progress record
 			if progressPercent > 0 && progress.ModulePosition > 0 {
-				// Get the module directly
 				module, err := moduleRepo.GetModuleByPositionAndCourse(progress.CourseID, progress.ModulePosition)
 				if err == nil {
 					courseInfo.CurrentModule = module.Title
@@ -466,7 +442,6 @@ func buildEmployeeDetailResponse(
 		processInfo = append(processInfo, courseInfo)
 	}
 
-	// Build process stats
 	processStats := resp.ProcessStats{
 		CompletedCourses: completedCourses,
 		TotalCourses:     totalCourses,
@@ -475,7 +450,6 @@ func buildEmployeeDetailResponse(
 		CompletedDate:    latestCompletionDate,
 	}
 
-	// Build final response
 	return resp.EmployeeDetail{
 		UserInfo:     userInfo,
 		ProcessStats: processStats,
@@ -483,26 +457,21 @@ func buildEmployeeDetailResponse(
 	}
 }
 
-// calculateCourseQuizScores retrieves and calculates quiz scores for a specific course and user
 func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, quizRepo rp.QuizRepository, logger echo.Logger) (float64, float64) {
 	userScore := float64(0)
 	maxScore := float64(0)
 
-	// Step 1: Get all quizzes belonging to the course
-	// First get all modules for this course
 	modules, err := moduleRepo.GetModulesByCourseID(courseID)
 	if err != nil {
 		logger.Errorf("Error getting modules for course %d: %v", courseID, err)
 		return 0, 0
 	}
 
-	// Get all moduleIDs
 	moduleIDs := make([]int, len(modules))
 	for i, module := range modules {
 		moduleIDs[i] = module.ID
 	}
 
-	// Get all module items for these modules with quiz relation
 	var moduleItems []m.ModuleItem
 	if len(moduleIDs) > 0 {
 		moduleItems, err = moduleItemRepo.GetModuleItemsByModuleIDs(moduleIDs)
@@ -512,10 +481,8 @@ func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRep
 		}
 	}
 
-	// For each module item of type "quiz"
 	for _, item := range moduleItems {
 		if item.ItemType == "quiz" && item.QuizID > 0 {
-			// Get user quiz submissions
 			submissions, err := quizRepo.GetQuizSubmissionsByUser(userID, item.QuizID)
 			if err != nil {
 				logger.Errorf("Error getting submissions for user %d, quiz %d: %v", userID, item.QuizID, err)
@@ -526,7 +493,6 @@ func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRep
 				continue
 			}
 
-			// Find max attempt number
 			maxAttempt := 0
 			for _, submission := range submissions {
 				if submission.Attempt > maxAttempt {
@@ -534,7 +500,6 @@ func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRep
 				}
 			}
 
-			// Calculate score for the latest attempt
 			latestAttemptScore := float64(0)
 			for _, submission := range submissions {
 				if submission.Attempt == maxAttempt {
@@ -542,13 +507,11 @@ func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRep
 				}
 			}
 
-			// Use the quiz relation if available, otherwise fetch separately
 			var quizTotalScore float64
 
 			if item.Quiz != nil {
 				quizTotalScore = item.Quiz.TotalScore
 			} else {
-				// Fallback to fetching quiz separately
 				quiz, err := quizRepo.GetQuizByID(item.QuizID)
 				if err != nil {
 					logger.Errorf("Error getting quiz %d: %v", item.QuizID, err)
@@ -557,7 +520,6 @@ func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRep
 				quizTotalScore = quiz.TotalScore
 			}
 
-			// Add to total scores
 			userScore += latestAttemptScore
 			maxScore += quizTotalScore
 		}
@@ -566,66 +528,53 @@ func calculateCourseQuizScores(courseID int, userID int, moduleRepo rp.ModuleRep
 	return userScore, maxScore
 }
 
-// calculateCourseProgress calculates the percentage of course completion
 func calculateCourseProgress(progress m.UserProgress, moduleRepo rp.ModuleRepository, moduleItemRepo rp.ModuleItemRepository, logger echo.Logger) int {
-	// If course is marked as completed, return 100%
 	if progress.Completed {
 		return 100
 	}
 
-	// If no module position is set, no progress has been made
 	if progress.ModulePosition <= 0 {
 		return 0
 	}
-	// Get all modules for this course
 	modules, err := moduleRepo.GetModulesByCourseID(progress.CourseID)
 	if err != nil {
 		logger.Errorf("Error getting modules for course %d: %v", progress.CourseID, err)
 		return 0
 	}
 
-	// Count total modules and items
 	totalModules := len(modules)
 	if totalModules == 0 {
 		return 0
 	}
 
-	// Calculate total module items
 	totalItems := 0
 	completedItems := 0
 
-	// Get module IDs
 	moduleIDs := make([]int, len(modules))
 	for i, module := range modules {
 		moduleIDs[i] = module.ID
 	}
 
-	// Get all module items
 	moduleItems, err := moduleItemRepo.GetModuleItemsByModuleIDs(moduleIDs)
 	if err != nil {
 		logger.Errorf("Error getting module items: %v", err)
-		// Fall back to estimation based on progress
 		totalModules = progress.CoursePosition
 		if totalModules <= 0 {
 			totalModules = len(modules)
 		}
 	} else {
-		// Count items by module
 		moduleItemCounts := make(map[int]int)
 		for _, item := range moduleItems {
 			moduleItemCounts[item.ModuleID]++
 			totalItems++
 		}
 
-		// Count completed items
 		for i, module := range modules {
-			position := i + 1 // Module positions are 1-indexed
+			position := i + 1
 
 			if position < progress.ModulePosition {
-				// All items in this module are completed
 				completedItems += moduleItemCounts[module.ID]
 			} else if position == progress.ModulePosition {
-				// Count completed items in current module
 				completedItems += progress.ModuleItemPosition - 1
 				if completedItems < 0 {
 					completedItems = 0
@@ -633,48 +582,38 @@ func calculateCourseProgress(progress m.UserProgress, moduleRepo rp.ModuleReposi
 			}
 		}
 
-		// If we have valid item counts, calculate percentage directly
 		if totalItems > 0 {
 			percentage := (completedItems * 100) / totalItems
 			if percentage >= 100 {
-				percentage = 99 // Cap at 99% since not marked complete
+				percentage = 99
 			}
 			return percentage
 		}
 	}
-	// Fall back to estimate if we couldn't calculate based on actual items
-	// Calculate the percentage completed based on module position
 	completedModules := progress.ModulePosition - 1
 	if completedModules < 0 {
 		completedModules = 0
 	}
 
-	// Base percentage from completed modules
 	percentage := (completedModules * 100) / totalModules
 
-	// Add percentage from current module's progress
 	if progress.ModulePosition > 0 && progress.ModuleItemPosition > 0 {
-		// Get items for the current module
 		currentModuleItems := 0
 		for _, module := range modules {
 			if module.Position == progress.ModulePosition {
-				// Get items for this specific module
 				items, err := moduleItemRepo.GetModuleItemsByModuleID(module.ID)
 				if err == nil && len(items) > 0 {
 					currentModuleItems = len(items)
 				} else {
-					// Fallback to average estimate
 					currentModuleItems = 10
 				}
 				break
 			}
 		}
 
-		// Calculate current module's contribution to percentage
 		modulePercentage := (progress.ModuleItemPosition * 100) / (currentModuleItems * totalModules)
 		percentage += modulePercentage
 	}
-	// Cap at 99% since it's not completed yet
 	if percentage >= 100 {
 		percentage = 99
 	}
