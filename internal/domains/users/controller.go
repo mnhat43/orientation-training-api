@@ -432,7 +432,7 @@ func buildEmployeeDetailResponse(
 				}
 
 				// Get reviewer name
-				if progress.Reviewer.ID > 0 {
+				if progress.ReviewedBy > 0 {
 					courseInfo.Assessment.ReviewerName = progress.Reviewer.UserProfile.FirstName + " " + progress.Reviewer.UserProfile.LastName
 				}
 			}
