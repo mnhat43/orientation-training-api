@@ -100,3 +100,23 @@ func (repo *PgUserProgressRepository) GetAllUserProgressByUserID(userID int) ([]
 
 	return userProgressList, nil
 }
+
+// ReviewUserProgress updates user progress with performance rating and comments
+func (repo *PgUserProgressRepository) ReviewUserProgress(userID int, courseID int, performanceRating float64, performanceComment string, reviewedBy int) error {
+	_, err := repo.DB.Model((*m.UserProgress)(nil)).
+		Set("performance_rating = ?", performanceRating).
+		Set("performance_comment = ?", performanceComment).
+		Set("reviewed_by = ?", reviewedBy).
+		Set("updated_at = NOW()").
+		Where("user_id = ?", userID).
+		Where("course_id = ?", courseID).
+		Where("deleted_at IS NULL").
+		Update()
+
+	if err != nil {
+		repo.Logger.Errorf("Error updating user progress review: %v", err)
+		return err
+	}
+
+	return nil
+}

@@ -377,3 +377,56 @@ func (ctr *UserProgressController) AddListTraineeToCourse(c echo.Context) error 
 		Message: "Trainees successfully added to course",
 	})
 }
+
+// ReviewProgress allows managers to review the progress of trainees
+func (ctr *UserProgressController) ReviewProgress(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+
+	reviewProgressParams := new(param.ReviewProgressParams)
+
+	if err := c.Bind(reviewProgressParams); err != nil {
+		ctr.Logger.Errorf("Failed to bind params: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid Params",
+			Data:    err,
+		})
+	}
+
+	if _, err := valid.ValidateStruct(reviewProgressParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+	_, err := ctr.UserProgressRepo.GetSingleUserProgress(reviewProgressParams.UserID, reviewProgressParams.CourseID)
+	if err != nil {
+		ctr.Logger.Errorf("User progress not found: %v", err)
+		return c.JSON(http.StatusNotFound, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "User progress not found",
+		})
+	}
+
+	err = ctr.UserProgressRepo.ReviewUserProgress(
+		reviewProgressParams.UserID,
+		reviewProgressParams.CourseID,
+		reviewProgressParams.PerformanceRating,
+		reviewProgressParams.PerformanceComment,
+		userProfile.ID,
+	)
+
+	if err != nil {
+		ctr.Logger.Errorf("Failed to review user progress: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to review user progress",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "User progress reviewed successfully",
+	})
+}

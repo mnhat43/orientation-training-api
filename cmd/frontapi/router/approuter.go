@@ -154,6 +154,8 @@ func (r *AppRouter) UserProgressRoute(g *echo.Group) {
 	g.POST("/add-user-progress", r.upCtr.AddUserProgress, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/list-trainee-by-course", r.upCtr.GetListTraineeByCourseID, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/add-list-trainee-to-course", r.upCtr.AddListTraineeToCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+
+	g.POST("/review-progress", r.upCtr.ReviewProgress, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
 
 func (r *AppRouter) TemplatePathRoute(g *echo.Group) {

@@ -44,3 +44,11 @@ type AddListTraineeToCourseParams struct {
 	CourseID int   `json:"course_id" validate:"required"`
 	Trainees []int `json:"trainees" validate:"required"`
 }
+
+// ReviewProgressParams defines parameters for reviewing user progress
+type ReviewProgressParams struct {
+	UserID             int     `json:"user_id" valid:"required"`
+	CourseID           int     `json:"course_id" valid:"required"`
+	PerformanceRating  float64 `json:"performance_rating" valid:"required"`
+	PerformanceComment string  `json:"performance_comment" valid:"required"`
+}
