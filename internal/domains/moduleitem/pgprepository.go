@@ -23,6 +23,7 @@ func (repo *PgModuleItemRepository) GetModuleItems(moduleItemListParams *param.M
 	moduleItems := []m.ModuleItem{}
 	queryObj := repo.DB.Model(&moduleItems)
 	queryObj.Where("module_id = ?", moduleItemListParams.ModuleID)
+	queryObj.Where("deleted_at is null")
 	queryObj.Order("position ASC")
 	totalRow, err := queryObj.SelectAndCount()
 	return moduleItems, totalRow, err
@@ -89,7 +90,6 @@ func (repo *PgModuleItemRepository) GetModuleItemsByModuleIDs(moduleIDs []int) (
 func (repo *PgModuleItemRepository) GetModuleItemsByModuleID(moduleID int) ([]m.ModuleItem, error) {
 	moduleItems := []m.ModuleItem{}
 	err := repo.DB.Model(&moduleItems).
-		Relation("Quiz").
 		Where("module_id = ?", moduleID).
 		Where("deleted_at is null").
 		Order("position ASC").

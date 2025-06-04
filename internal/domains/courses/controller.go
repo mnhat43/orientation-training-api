@@ -327,33 +327,36 @@ func (ctr *CourseController) GetCourseDetail(c echo.Context) error {
 			ctr.Logger.Errorf("Failed to fetch module items for module %d: %v", module.ID, err)
 			continue
 		}
-
 		itemsList := []map[string]interface{}{}
 		for _, item := range moduleItems {
-			duration := 0
-
-			if item.ItemType == "file" {
-				duration = item.RequiredTime
-			} else if item.ItemType == "video" {
-				videoID := item.Resource
-
-				videoInfo, err := ytService.GetVideoDetails(videoID)
-				if err == nil && videoInfo != nil {
-					duration = utils.ParseDurationToSeconds(videoInfo.Duration)
-				} else {
-					ctr.Logger.Errorf("Failed to fetch video details for %s: %v", videoID, err)
-					duration = item.RequiredTime
-				}
-			}
-
 			itemData := map[string]interface{}{
-				"id":            item.ID,
-				"title":         item.Title,
-				"item_type":     item.ItemType,
-				"required_time": item.RequiredTime,
-				"position":      item.Position,
-				"duration":      duration,
+				"id":        item.ID,
+				"title":     item.Title,
+				"item_type": item.ItemType,
+				"position":  item.Position,
 			}
+
+			if item.ItemType != "quiz" {
+				duration := 0
+
+				if item.ItemType == "file" {
+					duration = item.RequiredTime
+				} else if item.ItemType == "video" {
+					videoID := item.Resource
+
+					videoInfo, err := ytService.GetVideoDetails(videoID)
+					if err == nil && videoInfo != nil {
+						duration = utils.ParseDurationToSeconds(videoInfo.Duration)
+					} else {
+						ctr.Logger.Errorf("Failed to fetch video details for %s: %v", videoID, err)
+						duration = item.RequiredTime
+					}
+				}
+
+				itemData["required_time"] = item.RequiredTime
+				itemData["duration"] = duration
+			}
+
 			itemsList = append(itemsList, itemData)
 		}
 
