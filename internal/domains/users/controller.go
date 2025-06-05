@@ -353,12 +353,14 @@ func buildEmployeeDetailResponse(
 	}
 
 	totalCourses := len(userProgresses)
-
 	processInfo := []resp.CourseInfo{}
 	completedCourses := 0
 	totalUserScore := float64(0)
 	totalMaxScore := float64(0)
 	latestCompletionDate := ""
+
+	totalPerformanceRating := float64(0)
+	ratedCourses := 0
 
 	courseMap := make(map[int]m.Course)
 
@@ -400,7 +402,6 @@ func buildEmployeeDetailResponse(
 		} else {
 			courseInfo.PendingReviews = pendingReviews
 		}
-
 		if progress.Completed {
 			completedCourses++
 			courseInfo.Status = "completed"
@@ -415,6 +416,11 @@ func buildEmployeeDetailResponse(
 
 				if progress.ReviewedBy > 0 {
 					courseInfo.Assessment.ReviewerName = progress.Reviewer.UserProfile.FirstName + " " + progress.Reviewer.UserProfile.LastName
+				}
+
+				if progress.PerformanceRating > 0 {
+					totalPerformanceRating += progress.PerformanceRating
+					ratedCourses++
 				}
 			}
 
@@ -441,13 +447,19 @@ func buildEmployeeDetailResponse(
 
 		processInfo = append(processInfo, courseInfo)
 	}
+	averagePerformanceRating := float64(0)
+	if ratedCourses > 0 {
+		averagePerformanceRating = totalPerformanceRating / float64(ratedCourses)
+		averagePerformanceRating = float64(int(averagePerformanceRating*100+0.5)) / 100
+	}
 
 	processStats := resp.ProcessStats{
-		CompletedCourses: completedCourses,
-		TotalCourses:     totalCourses,
-		TotalScore:       totalMaxScore,
-		UserScore:        totalUserScore,
-		CompletedDate:    latestCompletionDate,
+		CompletedCourses:         completedCourses,
+		TotalCourses:             totalCourses,
+		TotalScore:               totalMaxScore,
+		UserScore:                totalUserScore,
+		CompletedDate:            latestCompletionDate,
+		AveragePerformanceRating: averagePerformanceRating,
 	}
 
 	return resp.EmployeeDetail{

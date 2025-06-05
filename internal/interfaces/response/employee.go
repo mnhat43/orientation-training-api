@@ -37,11 +37,12 @@ type UserInfo struct {
 
 // ProcessStats represents the overall statistics of the employee's training process
 type ProcessStats struct {
-	CompletedCourses int     `json:"completedCourses"`
-	TotalCourses     int     `json:"totalCourses"`
-	TotalScore       float64 `json:"totalScore"`
-	UserScore        float64 `json:"userScore"`
-	CompletedDate    string  `json:"completedDate,omitempty"`
+	CompletedCourses         int     `json:"completedCourses"`
+	TotalCourses             int     `json:"totalCourses"`
+	TotalScore               float64 `json:"totalScore"`
+	UserScore                float64 `json:"userScore"`
+	CompletedDate            string  `json:"completedDate,omitempty"`
+	AveragePerformanceRating float64 `json:"averagePerformanceRating,omitempty"`
 }
 
 // CourseInfo represents detailed information about a course in the employee's training process
