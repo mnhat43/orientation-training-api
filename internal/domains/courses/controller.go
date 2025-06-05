@@ -7,6 +7,7 @@ import (
 	cm "orientation-training-api/internal/common"
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
+	resp "orientation-training-api/internal/interfaces/response"
 	m "orientation-training-api/internal/models"
 	gc "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/utils"
@@ -27,6 +28,7 @@ type CourseController struct {
 	UserProgressRepo rp.UserProgressRepository
 	ModuleRepo       rp.ModuleRepository
 	ModuleItemRepo   rp.ModuleItemRepository
+	UserRepo         rp.UserRepository
 	cloud            gc.StorageUtility
 }
 
@@ -37,6 +39,7 @@ func NewCourseController(
 	upRepo rp.UserProgressRepository,
 	moduleRepo rp.ModuleRepository,
 	moduleItemRepo rp.ModuleItemRepository,
+	userRepo rp.UserRepository,
 	cloud gc.StorageUtility,
 ) (ctr *CourseController) {
 	ctr = &CourseController{
@@ -46,6 +49,7 @@ func NewCourseController(
 		upRepo,
 		moduleRepo,
 		moduleItemRepo,
+		userRepo,
 		cloud,
 	}
 	ctr.Init(logger)
@@ -104,7 +108,6 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 			"created_at":  course.CreatedAt.Format(cf.FormatDateDisplay),
 			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),
 		}
-
 		if userProfile.RoleID == cf.EmployeeRoleID {
 			userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, course.ID)
 			if err == nil && userProgress.ID > 0 {
@@ -112,6 +115,24 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 				itemDataResponse["module_position"] = userProgress.ModulePosition
 				itemDataResponse["module_item_position"] = userProgress.ModuleItemPosition
 				itemDataResponse["completed"] = userProgress.Completed
+
+				// Add assessment information for completed courses
+				if userProgress.Completed && userProgress.ReviewedBy > 0 {
+					assessment := resp.Assessment{
+						PerformanceRating:  userProgress.PerformanceRating,
+						PerformanceComment: userProgress.PerformanceComment,
+					}
+
+					// Get reviewer information
+					if userProgress.ReviewedBy > 0 {
+						reviewer, err := ctr.UserRepo.GetUserProfile(userProgress.ReviewedBy)
+						if err == nil {
+							assessment.ReviewerName = reviewer.UserProfile.FirstName + " " + reviewer.UserProfile.LastName
+						}
+					}
+
+					itemDataResponse["assessment"] = assessment
+				}
 			}
 		}
 

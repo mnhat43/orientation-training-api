@@ -52,7 +52,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
 		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo),
-		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, gcsStorage),
+		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, userRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, quizRepo, gcsStorage),
 		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, quizRepo, gcsStorage),
