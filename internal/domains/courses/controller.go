@@ -88,20 +88,16 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 
 	listCourseResponse := []map[string]interface{}{}
 	for _, course := range courses {
-		var base64Img []byte = nil
+		thumbnailURL := ""
 		if course.Thumbnail != "" {
-			base64Img, err = ctr.cloud.GetFileByFileName(course.Thumbnail, cf.ThumbnailFolderGCS)
-			if err != nil {
-				ctr.Logger.Error(err)
-				base64Img = nil
-			}
+			thumbnailURL = ctr.cloud.GetURL(course.Thumbnail, cf.ThumbnailFolderGCS)
 		}
 
 		itemDataResponse := map[string]interface{}{
 			"course_id":   course.ID,
 			"title":       course.Title,
 			"description": course.Description,
-			"thumbnail":   base64Img,
+			"thumbnail":   thumbnailURL,
 			"category":    course.Category,
 			"duration":    course.Duration,
 			"created_by":  course.CreatedBy,

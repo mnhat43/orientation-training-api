@@ -92,7 +92,7 @@ func (cloud *GcsStorage) DeleteFileCloud(fileName string, directoryCloud string)
 	return nil
 }
 
-// GetFileURL generates a public URL for a file in the cloud storage
-func (cloud *GcsStorage) GetFileURL(fileName string, directoryCloud string) string {
+// GetURL generates a public URL for a in the cloud storage
+func (cloud *GcsStorage) GetURL(fileName string, directoryCloud string) string {
 	return "https://storage.cloud.google.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + directoryCloud + fileName
 }
