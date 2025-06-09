@@ -155,7 +155,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 					PublishedAt:  videoInfo.PublishedAt,
 				}
 				lectureItem.Content = videoContent
-			} else if item.ItemType == "file" {
+			} else if item.ItemType == "file" || item.ItemType == "slide" {
 				var filePath string
 				if item.Resource != "" {
 					filePath = "https://storage.googleapis.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource

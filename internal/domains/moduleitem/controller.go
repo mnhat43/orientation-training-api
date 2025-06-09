@@ -105,10 +105,11 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 	if createModuleItemParams.ItemType == "" ||
 		(createModuleItemParams.ItemType != "video" &&
 			createModuleItemParams.ItemType != "file" &&
-			createModuleItemParams.ItemType != "quiz") {
+			createModuleItemParams.ItemType != "quiz" &&
+			createModuleItemParams.ItemType != "slide") { // Thêm slide
 		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
-			Message: "Invalid item_type. Allowed values: video, file, quiz",
+			Message: "Invalid item_type. Allowed values: video, file, quiz, slide",
 		})
 	}
 
@@ -170,7 +171,7 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 
 		createModuleItemParams.RequiredTime = requiredTimeInSeconds
 		createModuleItemParams.Resource = videoId
-	} else if createModuleItemParams.ItemType == "file" {
+	} else if createModuleItemParams.ItemType == "file" || createModuleItemParams.ItemType == "slide" {
 		parts := strings.SplitN(createModuleItemParams.Resource, ",", 2)
 		if len(parts) != 2 {
 			return c.JSON(http.StatusOK, cf.JsonResponse{
@@ -195,11 +196,37 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 			})
 		}
 
-		if _, check := utils.FindStringInArray(cf.AllowFormatFileList, formatFile); !check {
-			return c.JSON(http.StatusOK, cf.JsonResponse{
-				Status:  cf.FailResponseCode,
-				Message: "File not allowed",
-			})
+		// Nếu là slide, có thể kiểm tra định dạng file slide (ví dụ: pdf, ppt, pptx)
+		if createModuleItemParams.ItemType == "slide" {
+			allowedSlides := []string{
+				"pdf",               // PDF
+				"ppt",               // PowerPoint 97-2003
+				"pptx",              // PowerPoint hiện đại
+				"vnd.ms-powerpoint", // MIME cho ppt
+				"vnd.openxmlformats-officedocument.presentationml.presentation", // MIME cho pptx
+				"vnd.oasis.opendocument.presentation",                           // ODP (OpenDocument Presentation)
+				"x-pdf",                                                         // Một số trình duyệt gửi pdf là x-pdf
+				"vnd.ms-powerpoint.presentation.macroenabled.12",                // pptm (PowerPoint Macro-Enabled Presentation)
+				"vnd.ms-powerpoint.slideshow.macroenabled.12",                   // ppsm
+				"vnd.ms-powerpoint.slideshow.macroEnabled.12",                   // ppsm (viết hoa khác)
+				"vnd.ms-powerpoint.addin.macroenabled.12",                       // ppam
+				"vnd.ms-powerpoint.template.macroenabled.12",                    // potm
+				"vnd.openxmlformats-officedocument.presentationml.template",     // potx
+				"vnd.openxmlformats-officedocument.presentationml.slideshow",    // ppsx
+			}
+			if _, check := utils.FindStringInArray(allowedSlides, formatFile); !check {
+				return c.JSON(http.StatusOK, cf.JsonResponse{
+					Status:  cf.FailResponseCode,
+					Message: "Slide file not allowed",
+				})
+			}
+		} else {
+			if _, check := utils.FindStringInArray(cf.AllowFormatFileList, formatFile); !check {
+				return c.JSON(http.StatusOK, cf.JsonResponse{
+					Status:  cf.FailResponseCode,
+					Message: "File not allowed",
+				})
+			}
 		}
 
 		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
