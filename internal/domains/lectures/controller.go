@@ -158,7 +158,7 @@ func (ctr *LectureController) GetLectureList(c echo.Context) error {
 			} else if item.ItemType == "file" {
 				var filePath string
 				if item.Resource != "" {
-					filePath = "https://storage.cloud.google.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource
+					filePath = "https://storage.googleapis.com/" + os.Getenv("GOOGLE_STORAGE_BUCKET") + "/" + cf.FileFolderGCS + item.Resource
 				}
 
 				fileContent := response.FileContentResponse{
