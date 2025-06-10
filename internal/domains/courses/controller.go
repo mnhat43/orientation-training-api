@@ -107,6 +107,19 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 			"created_at":  course.CreatedAt.Format(cf.FormatDateDisplay),
 			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),
 		}
+		// Get skill keywords for the course
+		skillKeywords, err := ctr.CourseSkillKeywordRepo.GetSkillKeywordsByCourseID(course.ID)
+		if err == nil {
+			skillKeywordNames := []string{}
+			for _, sk := range skillKeywords {
+				skillKeywordNames = append(skillKeywordNames, sk.Name)
+			}
+			itemDataResponse["skill_keyword"] = skillKeywordNames
+		} else {
+			ctr.Logger.Errorf("Failed to fetch skill keywords for course %d: %v", course.ID, err)
+			itemDataResponse["skill_keyword"] = []string{}
+		}
+
 		if userProfile.RoleID == cf.EmployeeRoleID {
 			userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, course.ID)
 			if err == nil && userProgress.ID > 0 {

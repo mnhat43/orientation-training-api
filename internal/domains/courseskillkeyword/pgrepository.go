@@ -43,3 +43,22 @@ func (repo *PgCourseSkillKeywordRepository) DeleteByCourseID(courseID int) error
 	}
 	return err
 }
+
+// GetSkillKeywordsByCourseID : Get all skill keywords associated with a course
+func (repo *PgCourseSkillKeywordRepository) GetSkillKeywordsByCourseID(courseID int) ([]m.SkillKeyword, error) {
+	var skillKeywords []m.SkillKeyword
+
+	_, err := repo.DB.Query(&skillKeywords, `
+		SELECT sk.* 
+		FROM skill_keywords AS sk
+		JOIN course_skill_keywords AS csk ON sk.id = csk.skill_keyword_id
+		WHERE csk.course_id = ?
+		ORDER BY sk.id ASC
+	`, courseID)
+
+	if err != nil {
+		repo.Logger.Errorf("Failed to get skill keywords for course ID %d: %v", courseID, err)
+	}
+
+	return skillKeywords, err
+}
