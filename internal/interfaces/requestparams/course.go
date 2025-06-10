@@ -1,11 +1,12 @@
 package requestparams
 
 type CreateCourseParams struct {
-	Title       string `json:"title" valid:"required"`
-	Description string `json:"description"`
-	Thumbnail   string `json:"thumbnail"`
-	Category    string `json:"category" valid:"required"`
-	CreatedBy   int    `json:"created_by"`
+	Title           string `json:"title" valid:"required"`
+	Description     string `json:"description"`
+	Thumbnail       string `json:"thumbnail"`
+	Category        string `json:"category" valid:"required"`
+	CreatedBy       int    `json:"created_by"`
+	SkillKeywordIDs []int  `json:"skill_keyword_ids"`
 }
 
 type UpdateCourseParams struct {

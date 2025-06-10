@@ -60,10 +60,10 @@ func (repo *PgCourseRepository) GetAllCourses() ([]m.Course, error) {
 	return courses, nil
 }
 
-// SaveCourse : insert data to course
-// Params : orgID, param.CreateCourseParams
+// SaveCourse : insert data to course and associated skill keywords
+// Params : createCourseParams, courseSkillKeywordRepo
 // Returns : return object of record that 've just been inserted
-func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCourseParams, userCourseRepo rp.UserCourseRepository) (m.Course, error) {
+func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCourseParams, courseSkillKeywordRepo rp.CourseSkillKeywordRepository) (m.Course, error) {
 	course := m.Course{}
 	err := repo.DB.RunInTransaction(func(tx *pg.Tx) error {
 		var transErr error
@@ -80,12 +80,18 @@ func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCours
 			return transErr
 		}
 
-		transErr = userCourseRepo.InsertUserCourseWithTx(tx, createCourseParams.CreatedBy, course.ID)
-		if transErr != nil {
-			repo.Logger.Error(transErr)
-			return transErr
+		// Insert course skill keyword relations
+		if len(createCourseParams.SkillKeywordIDs) > 0 {
+			for _, skillKeywordID := range createCourseParams.SkillKeywordIDs {
+				transErr = courseSkillKeywordRepo.InsertCourseSkillKeywordWithTx(tx, course.ID, skillKeywordID)
+				if transErr != nil {
+					repo.Logger.Error(transErr)
+					return transErr
+				}
+			}
 		}
-		return transErr
+
+		return nil
 	})
 
 	return course, err

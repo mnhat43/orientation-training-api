@@ -3,6 +3,7 @@ package router
 import (
 	"orientation-training-api/internal/domains/auth"
 	c "orientation-training-api/internal/domains/courses"
+	cskw "orientation-training-api/internal/domains/courseskillkeyword"
 	lec "orientation-training-api/internal/domains/lectures"
 	mdi "orientation-training-api/internal/domains/moduleitem"
 	md "orientation-training-api/internal/domains/modules"
@@ -49,13 +50,14 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	templatePathRepo := tp.NewPgTemplatePathRepository(logger)
 	quizRepo := quiz.NewPgQuizRepository(logger)
 	skillKeywordRepo := skey.NewPgSkillKeywordRepository(logger)
+	cskwRepo := cskw.NewPgCourseSkillKeywordRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
 
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
 		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo),
-		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, userRepo, gcsStorage),
+		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, userRepo, cskwRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, quizRepo, gcsStorage),
 		lectureCtr:      lec.NewLectureController(logger, moduleRepo, moduleItemRepo, courseRepo, upRepo, quizRepo, gcsStorage),

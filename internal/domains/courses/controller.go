@@ -23,13 +23,14 @@ import (
 type CourseController struct {
 	cm.BaseController
 
-	CourseRepo       rp.CourseRepository
-	UserCourseRepo   rp.UserCourseRepository
-	UserProgressRepo rp.UserProgressRepository
-	ModuleRepo       rp.ModuleRepository
-	ModuleItemRepo   rp.ModuleItemRepository
-	UserRepo         rp.UserRepository
-	cloud            gc.StorageUtility
+	CourseRepo             rp.CourseRepository
+	UserCourseRepo         rp.UserCourseRepository
+	UserProgressRepo       rp.UserProgressRepository
+	ModuleRepo             rp.ModuleRepository
+	ModuleItemRepo         rp.ModuleItemRepository
+	UserRepo               rp.UserRepository
+	CourseSkillKeywordRepo rp.CourseSkillKeywordRepository
+	cloud                  gc.StorageUtility
 }
 
 func NewCourseController(
@@ -40,6 +41,7 @@ func NewCourseController(
 	moduleRepo rp.ModuleRepository,
 	moduleItemRepo rp.ModuleItemRepository,
 	userRepo rp.UserRepository,
+	courseSkillKeywordRepo rp.CourseSkillKeywordRepository,
 	cloud gc.StorageUtility,
 ) (ctr *CourseController) {
 	ctr = &CourseController{
@@ -50,6 +52,7 @@ func NewCourseController(
 		moduleRepo,
 		moduleItemRepo,
 		userRepo,
+		courseSkillKeywordRepo,
 		cloud,
 	}
 	ctr.Init(logger)
@@ -213,9 +216,8 @@ func (ctr *CourseController) AddCourse(c echo.Context) error {
 
 		createCourseParams.Thumbnail = nameThumbnail
 	}
-
 	createCourseParams.CreatedBy = userProfile.ID
-	course, err := ctr.CourseRepo.SaveCourse(createCourseParams, ctr.UserCourseRepo)
+	course, err := ctr.CourseRepo.SaveCourse(createCourseParams, ctr.CourseSkillKeywordRepo)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
@@ -269,8 +271,15 @@ func (ctr *CourseController) DeleteCourse(c echo.Context) error {
 			})
 		}
 	}
+	// Delete course skill keywords first
+	err := ctr.CourseSkillKeywordRepo.DeleteByCourseID(courseIDParam.CourseID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to delete course skill keywords: %v", err)
+		// Continue even if there's an error, as the ON DELETE CASCADE in the database should handle this
+	}
 
-	err := ctr.UserCourseRepo.DeleteByCourseId(courseIDParam.CourseID)
+	// Then delete user course relations
+	err = ctr.UserCourseRepo.DeleteByCourseId(courseIDParam.CourseID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
@@ -278,6 +287,7 @@ func (ctr *CourseController) DeleteCourse(c echo.Context) error {
 		})
 	}
 
+	// Finally delete the course
 	err = ctr.CourseRepo.DeleteCourse(courseIDParam.CourseID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
