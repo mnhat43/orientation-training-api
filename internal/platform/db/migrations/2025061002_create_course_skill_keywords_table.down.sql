@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS course_skill_keywords;
