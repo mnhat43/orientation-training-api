@@ -140,3 +140,22 @@ func (repo *PgUserRepository) CreateUser(user m.User) (int, error) {
 
 	return user.ID, nil
 }
+
+// GetUsersWithoutProgress retrieves all users with specified role ID who don't have any records in user_progresses table
+func (repo *PgUserRepository) GetUsersWithoutProgress(roleID int) ([]m.User, error) {
+	var users []m.User
+	err := repo.DB.Model(&users).
+		Column("usr.*").
+		Where("usr.role_id = ?", roleID).
+		Where("usr.deleted_at is null").
+		Where("NOT EXISTS (SELECT 1 FROM user_progresses up WHERE up.user_id = usr.id AND up.deleted_at IS NULL)").
+		Relation("UserProfile").
+		Relation("Role").
+		Select()
+
+	if err != nil {
+		repo.Logger.Errorf("Error getting users without progress: %+v", err)
+	}
+
+	return users, err
+}

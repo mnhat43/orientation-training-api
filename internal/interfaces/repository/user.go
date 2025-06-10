@@ -10,6 +10,7 @@ type UserRepository interface {
 	GetUserProfile(id int) (m.User, error)
 	GetUsersByRoleID(roleID int) ([]m.User, error)
 	GetUserProgressByUserID(userID int) ([]m.UserProgress, error)
+	GetUsersWithoutProgress(roleID int) ([]m.User, error)
 	CreateUser(user m.User) (int, error)
 	CheckEmailExists(email string) (bool, error)
 }

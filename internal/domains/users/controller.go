@@ -183,13 +183,13 @@ func (ctr *UserController) Register(c echo.Context) error {
 	})
 }
 
-// GetListTrainee retrieves all users with trainee role
+// GetListTrainee retrieves all users with trainee role who don't have any assigned courses
 // Params: echo.Context
 // Returns: error
 func (ctr *UserController) GetListTrainee(c echo.Context) error {
-	trainees, err := ctr.UserRepo.GetUsersByRoleID(cf.EmployeeRoleID)
+	trainees, err := ctr.UserRepo.GetUsersWithoutProgress(cf.EmployeeRoleID)
 	if err != nil {
-		ctr.Logger.Errorf("Failed to fetch trainees: %v", err)
+		ctr.Logger.Errorf("Failed to fetch trainees without assigned courses: %v", err)
 		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 			Status:  cf.FailResponseCode,
 			Message: "Failed to fetch trainees",
@@ -217,10 +217,9 @@ func (ctr *UserController) GetListTrainee(c echo.Context) error {
 		}
 		traineeList = append(traineeList, traineeInfo)
 	}
-
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
-		Message: "Trainee list retrieved successfully",
+		Message: "Unassigned trainee list retrieved successfully",
 		Data:    traineeList,
 	})
 }
