@@ -111,6 +111,7 @@ func main() {
 	router.UserProgressRoute(e.Group("/user-progress"))
 	router.TemplatePathRoute(e.Group("/template-path"))
 	router.QuizRoute(e.Group("/quiz"))
+	router.SkillKeyword(e.Group("/skill-keyword"))
 
 	go func() {
 		if err := e.Start(":8080"); err != nil {

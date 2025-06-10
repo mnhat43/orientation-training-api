@@ -7,6 +7,7 @@ import (
 	mdi "orientation-training-api/internal/domains/moduleitem"
 	md "orientation-training-api/internal/domains/modules"
 	quiz "orientation-training-api/internal/domains/quizzes"
+	skey "orientation-training-api/internal/domains/skillkeyword"
 	tp "orientation-training-api/internal/domains/templatepaths"
 	uc "orientation-training-api/internal/domains/usercourse"
 	up "orientation-training-api/internal/domains/userprogress"
@@ -30,6 +31,7 @@ type AppRouter struct {
 	upCtr           *up.UserProgressController
 	templatePathCtr *tp.TemplatePathController
 	quizCtr         *quiz.QuizController
+	sKeyCtr         *skey.SkillKeywordController
 
 	// adminCtr *ad.Controller
 
@@ -46,6 +48,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	upRepo := up.NewPgUserProgressRepository(logger)
 	templatePathRepo := tp.NewPgTemplatePathRepository(logger)
 	quizRepo := quiz.NewPgQuizRepository(logger)
+	skillKeywordRepo := skey.NewPgSkillKeywordRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
 
@@ -59,6 +62,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		upCtr:           up.NewUserProgressController(logger, upRepo, moduleRepo, moduleItemRepo, userRepo),
 		templatePathCtr: tp.NewTemplatePathController(logger, templatePathRepo, courseRepo),
 		quizCtr:         quiz.NewQuizController(logger, quizRepo),
+		sKeyCtr:         skey.NewSkillKeywordController(logger, skillKeywordRepo),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
 	}
@@ -190,4 +194,16 @@ func (r *AppRouter) QuizRoute(g *echo.Group) {
 
 	g.GET("/pending-review", r.quizCtr.GetQuizPendingReview, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/review-essay", r.quizCtr.ReviewEssaySubmission, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+}
+
+func (r *AppRouter) SkillKeyword(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.GET("/list", r.sKeyCtr.GetSkillKeywordList, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/create", r.sKeyCtr.CreateSkillKeyword, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/update", r.sKeyCtr.UpdateSkillKeyword, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/delete", r.sKeyCtr.DeleteSkillKeyword, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
