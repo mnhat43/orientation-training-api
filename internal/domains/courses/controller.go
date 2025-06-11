@@ -107,7 +107,6 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 			"created_at":  course.CreatedAt.Format(cf.FormatDateDisplay),
 			"updated_at":  course.UpdatedAt.Format(cf.FormatDateDisplay),
 		}
-		// Get skill keywords for the course
 		skillKeywords, err := ctr.CourseSkillKeywordRepo.GetSkillKeywordsByCourseID(course.ID)
 		if err == nil {
 			skillKeywordNames := []string{}
@@ -128,14 +127,12 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 				itemDataResponse["module_item_position"] = userProgress.ModuleItemPosition
 				itemDataResponse["completed"] = userProgress.Completed
 
-				// Add assessment information for completed courses
 				if userProgress.Completed && userProgress.ReviewedBy > 0 {
 					assessment := resp.Assessment{
 						PerformanceRating:  userProgress.PerformanceRating,
 						PerformanceComment: userProgress.PerformanceComment,
 					}
 
-					// Get reviewer information
 					if userProgress.ReviewedBy > 0 {
 						reviewer, err := ctr.UserRepo.GetUserProfile(userProgress.ReviewedBy)
 						if err == nil {
@@ -150,14 +147,37 @@ func (ctr *CourseController) GetCourseList(c echo.Context) error {
 
 		listCourseResponse = append(listCourseResponse, itemDataResponse)
 	}
+	responseData := map[string]interface{}{
+		"courses": listCourseResponse,
+	}
+
+	if userProfile.RoleID == cf.EmployeeRoleID {
+		uniqueSkills := make(map[string]bool)
+
+		for _, course := range courses {
+			userProgress, err := ctr.UserProgressRepo.GetSingleUserProgress(userProfile.ID, course.ID)
+			if err == nil && userProgress.ID > 0 && userProgress.Completed {
+				skillKeywords, err := ctr.CourseSkillKeywordRepo.GetSkillKeywordsByCourseID(course.ID)
+				if err == nil {
+					for _, sk := range skillKeywords {
+						uniqueSkills[sk.Name] = true
+					}
+				}
+			}
+		}
+
+		mySkills := []string{}
+		for skill := range uniqueSkills {
+			mySkills = append(mySkills, skill)
+		}
+
+		responseData["my_skills"] = mySkills
+	}
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
 		Message: "Success",
-		Data: map[string]interface{}{
-			"courses": listCourseResponse,
-			"total":   len(courses),
-		},
+		Data:    responseData,
 	})
 }
 
