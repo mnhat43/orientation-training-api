@@ -53,9 +53,10 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	cskwRepo := cskw.NewPgCourseSkillKeywordRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
+
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
-		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo, gcsStorage),
+		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo, cskwRepo, gcsStorage),
 		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, userRepo, cskwRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, quizRepo, gcsStorage),

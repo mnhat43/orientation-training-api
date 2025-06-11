@@ -25,13 +25,14 @@ import (
 type UserController struct {
 	cm.BaseController
 
-	UserRepo         rp.UserRepository
-	UserProgressRepo rp.UserProgressRepository
-	CourseRepo       rp.CourseRepository
-	ModuleRepo       rp.ModuleRepository
-	ModuleItemRepo   rp.ModuleItemRepository
-	QuizRepo         rp.QuizRepository
-	cloud            gc.StorageUtility
+	UserRepo               rp.UserRepository
+	UserProgressRepo       rp.UserProgressRepository
+	CourseRepo             rp.CourseRepository
+	ModuleRepo             rp.ModuleRepository
+	ModuleItemRepo         rp.ModuleItemRepository
+	QuizRepo               rp.QuizRepository
+	CourseSkillKeywordRepo rp.CourseSkillKeywordRepository
+	cloud                  gc.StorageUtility
 }
 
 func NewUserController(
@@ -42,6 +43,7 @@ func NewUserController(
 	moduleRepo rp.ModuleRepository,
 	moduleItemRepo rp.ModuleItemRepository,
 	quizRepo rp.QuizRepository,
+	courseSkillKeywordRepo rp.CourseSkillKeywordRepository,
 	cloud gc.StorageUtility,
 
 ) (ctr *UserController) {
@@ -53,6 +55,7 @@ func NewUserController(
 		moduleRepo,
 		moduleItemRepo,
 		quizRepo,
+		courseSkillKeywordRepo,
 		cloud,
 	}
 	ctr.Init(logger)
@@ -301,15 +304,50 @@ func (ctr *UserController) GetEmployeeOverview(c echo.Context) error {
 				status = resp.StatusInProgress
 			}
 		}
+		// Initialize with empty skill keywords list
+		skillKeywords := []string{}
+
+		// For employees with InProgress or Completed status, get skill keywords from completed courses
+		if status == resp.StatusInProgress || status == resp.StatusCompleted {
+			// Find completed courses
+			var completedCourseIDs []int
+			for _, progress := range userProgresses {
+				if progress.Completed {
+					completedCourseIDs = append(completedCourseIDs, progress.CourseID)
+				}
+			}
+
+			// Get skill keywords for completed courses
+			if len(completedCourseIDs) > 0 {
+				skillKeywordsMap := make(map[string]bool) // To avoid duplicates
+				for _, courseID := range completedCourseIDs {
+					keywords, err := ctr.CourseSkillKeywordRepo.GetSkillKeywordsByCourseID(courseID)
+					if err != nil {
+						ctr.Logger.Warnf("Failed to fetch skill keywords for course ID %d: %v", courseID, err)
+						continue
+					}
+
+					for _, keyword := range keywords {
+						skillKeywordsMap[keyword.Name] = true
+					}
+				}
+
+				// Convert map keys to slice
+				for keyword := range skillKeywordsMap {
+					skillKeywords = append(skillKeywords, keyword)
+				}
+			}
+		}
 
 		employeeInfo := resp.EmployeeOverview{
-			UserID:      employee.ID,
-			Fullname:    employee.UserProfile.FirstName + " " + employee.UserProfile.LastName,
-			Email:       employee.Email,
-			PhoneNumber: employee.UserProfile.PhoneNumber,
-			Avatar:      employee.UserProfile.Avatar,
-			Department:  employee.UserProfile.Department,
-			Status:      status,
+			UserID:        employee.ID,
+			Fullname:      employee.UserProfile.FirstName + " " + employee.UserProfile.LastName,
+			Email:         employee.Email,
+			PhoneNumber:   employee.UserProfile.PhoneNumber,
+			Avatar:        employee.UserProfile.Avatar,
+			Department:    employee.UserProfile.Department,
+			Status:        status,
+			SkillKeywords: skillKeywords,
 		}
 		employeeList = append(employeeList, employeeInfo)
 	}
