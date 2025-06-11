@@ -389,7 +389,6 @@ func (ctr *UserController) EmployeeDetail(c echo.Context) error {
 			Message: "Employee not found",
 		})
 	}
-
 	userProgresses, err := ctr.UserProgressRepo.GetAllUserProgressByUserID(employeeDetailParams.UserID)
 	if err != nil {
 		ctr.Logger.Errorf("Failed to fetch user progress: %v", err)
@@ -398,7 +397,7 @@ func (ctr *UserController) EmployeeDetail(c echo.Context) error {
 			Message: "Failed to fetch user progress",
 		})
 	}
-	response := buildEmployeeDetailResponse(employee, userProgresses, ctr.CourseRepo, ctr.ModuleRepo, ctr.ModuleItemRepo, ctr.QuizRepo, ctr.Logger)
+	response := buildEmployeeDetailResponse(employee, userProgresses, ctr.CourseRepo, ctr.ModuleRepo, ctr.ModuleItemRepo, ctr.QuizRepo, ctr.CourseSkillKeywordRepo, ctr.Logger)
 
 	return c.JSON(http.StatusOK, cf.JsonResponse{
 		Status:  cf.SuccessResponseCode,
@@ -414,6 +413,7 @@ func buildEmployeeDetailResponse(
 	moduleRepo rp.ModuleRepository,
 	moduleItemRepo rp.ModuleItemRepository,
 	quizRepo rp.QuizRepository,
+	courseSkillKeywordRepo rp.CourseSkillKeywordRepository,
 	logger echo.Logger,
 ) resp.EmployeeDetail {
 	userInfo := resp.UserInfo{
@@ -437,6 +437,9 @@ func buildEmployeeDetailResponse(
 	ratedCourses := 0
 
 	courseMap := make(map[int]m.Course)
+
+	// Map to store all user skills (from completed courses)
+	allUserSkills := make(map[string]bool)
 
 	for _, progress := range userProgresses {
 		if progress.Course != nil {
@@ -467,6 +470,18 @@ func buildEmployeeDetailResponse(
 		courseInfo := resp.CourseInfo{
 			CourseID:    course.ID,
 			CourseTitle: course.Title,
+		}
+
+		// Get skill keywords for this course
+		skillKeywords := []string{}
+		keywords, err := courseSkillKeywordRepo.GetSkillKeywordsByCourseID(course.ID)
+		if err != nil {
+			logger.Warnf("Failed to fetch skill keywords for course ID %d: %v", course.ID, err)
+		} else {
+			for _, keyword := range keywords {
+				skillKeywords = append(skillKeywords, keyword.Name)
+			}
+			courseInfo.SkillKeywords = skillKeywords
 		}
 
 		pendingReviews, err := quizRepo.GetPendingEssayReviewsCountForCourse(employee.ID, course.ID)
@@ -504,6 +519,11 @@ func buildEmployeeDetailResponse(
 
 			totalUserScore += userScore
 			totalMaxScore += maxScore
+
+			// Add skills from completed courses to the user's skill set
+			for _, keyword := range skillKeywords {
+				allUserSkills[keyword] = true
+			}
 		} else {
 			courseInfo.Status = "in_progress"
 			progressPercent := calculateCourseProgress(progress, moduleRepo, moduleItemRepo, logger)
@@ -527,6 +547,12 @@ func buildEmployeeDetailResponse(
 		averagePerformanceRating = float64(int(averagePerformanceRating*100+0.5)) / 100
 	}
 
+	// Convert accumulated user skills to a slice
+	userSkills := []string{}
+	for skill := range allUserSkills {
+		userSkills = append(userSkills, skill)
+	}
+
 	processStats := resp.ProcessStats{
 		CompletedCourses:         completedCourses,
 		TotalCourses:             totalCourses,
@@ -534,6 +560,7 @@ func buildEmployeeDetailResponse(
 		UserScore:                totalUserScore,
 		CompletedDate:            latestCompletionDate,
 		AveragePerformanceRating: averagePerformanceRating,
+		UserSkills:               userSkills,
 	}
 
 	return resp.EmployeeDetail{
@@ -688,6 +715,7 @@ func calculateCourseProgress(progress m.UserProgress, moduleRepo rp.ModuleReposi
 		for _, module := range modules {
 			if module.Position == progress.ModulePosition {
 				items, err := moduleItemRepo.GetModuleItemsByModuleID(module.ID)
+				err = nil
 				if err == nil && len(items) > 0 {
 					currentModuleItems = len(items)
 				} else {
