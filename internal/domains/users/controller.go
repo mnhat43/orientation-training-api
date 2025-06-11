@@ -143,15 +143,51 @@ func (ctr *UserController) Register(c echo.Context) error {
 
 	hashedPassword := utils.GetSHA256Hash(registerParams.Password)
 
-	var birthday time.Time
-	if registerParams.Birthday != "" {
-		birthday, err = time.Parse(cf.FormatDateDatabase, registerParams.Birthday)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+	if registerParams.Avatar != "" {
+		parts := strings.SplitN(registerParams.Avatar, ",", 2)
+		if len(parts) != 2 {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
-				Message: "Invalid birthday format. Use YYYY-MM-DD",
+				Message: "Invalid Avatar Format",
 			})
 		}
+
+		mimeType := parts[0]
+		base64Data := parts[1]
+
+		formatImageAvatar := ""
+		if strings.HasPrefix(mimeType, "data:image/") {
+			formatImageAvatar = strings.TrimPrefix(mimeType, "data:image/")
+			formatImageAvatar = strings.Split(formatImageAvatar, ";")[0]
+		}
+
+		if formatImageAvatar == "" {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Image Format",
+			})
+		}
+
+		if _, check := utils.FindStringInArray(cf.AllowFormatImageList, formatImageAvatar); !check {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "The Avatar field must be an image",
+			})
+		}
+
+		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
+		nameAvatar := fmt.Sprintf("%d_%d.%s", 99, millisecondTimeNow, formatImageAvatar)
+
+		err := ctr.cloud.UploadFileToCloud(base64Data, nameAvatar, cf.AvatarFolderGCS)
+		if err != nil {
+			ctr.Logger.Error(err)
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Upload Avatar error",
+			})
+		}
+
+		registerParams.Avatar = ctr.cloud.GetURL(nameAvatar, cf.AvatarFolderGCS)
 	}
 
 	newUser := m.User{
@@ -159,14 +195,15 @@ func (ctr *UserController) Register(c echo.Context) error {
 		Password: hashedPassword,
 		RoleID:   registerParams.RoleID,
 		UserProfile: m.UserProfile{
-			FirstName:     registerParams.FirstName,
-			LastName:      registerParams.LastName,
-			PhoneNumber:   registerParams.PhoneNumber,
-			PersonalEmail: registerParams.PersonnalEmail,
-			Department:    registerParams.Department,
-			Avatar:        registerParams.Avatar,
-			Gender:        registerParams.Gender,
-			Birthday:      birthday,
+			FirstName:         registerParams.FirstName,
+			LastName:          registerParams.LastName,
+			PhoneNumber:       registerParams.PhoneNumber,
+			PersonalEmail:     registerParams.PersonnalEmail,
+			Department:        registerParams.Department,
+			Avatar:            registerParams.Avatar,
+			Gender:            registerParams.Gender,
+			CompanyJoinedDate: registerParams.CompanyJoinedDate,
+			Birthday:          registerParams.Birthday,
 		},
 	}
 
@@ -210,16 +247,10 @@ func (ctr *UserController) GetListTrainee(c echo.Context) error {
 			"fullname":    trainee.UserProfile.FirstName + " " + trainee.UserProfile.LastName,
 			"phoneNumber": trainee.UserProfile.PhoneNumber,
 			"avatar":      trainee.UserProfile.Avatar,
-			"birthday":    nil,
+			"birthday":    trainee.UserProfile.Birthday,
 			"department":  trainee.UserProfile.Department,
 			"gender":      cf.Gender[trainee.UserProfile.Gender],
-			"joinedDate":  nil,
-		}
-		if !trainee.UserProfile.Birthday.IsZero() {
-			traineeInfo["birthday"] = trainee.UserProfile.Birthday.Format(cf.FormatDateDatabase)
-		}
-		if !trainee.UserProfile.CompanyJoinedDate.IsZero() {
-			traineeInfo["joinedDate"] = trainee.UserProfile.CompanyJoinedDate.Format(cf.FormatDateDatabase)
+			"joinedDate":  trainee.UserProfile.CompanyJoinedDate,
 		}
 		traineeList = append(traineeList, traineeInfo)
 	}
@@ -354,7 +385,7 @@ func buildEmployeeDetailResponse(
 		PhoneNumber: employee.UserProfile.PhoneNumber,
 		Department:  employee.UserProfile.Department,
 		Avatar:      employee.UserProfile.Avatar,
-		JoinedDate:  employee.UserProfile.CompanyJoinedDate.Format(cf.FormatDateDatabase),
+		JoinedDate:  employee.UserProfile.CompanyJoinedDate,
 	}
 
 	totalCourses := len(userProgresses)

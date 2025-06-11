@@ -45,15 +45,16 @@ type EmployeeDetailParams struct {
 }
 
 type RegisterParams struct {
-	FirstName      string `json:"first_name" validate:"required"`
-	LastName       string `json:"last_name" validate:"required"`
-	Email          string `json:"email" validate:"required,email"`
-	Password       string `json:"password" validate:"required"`
-	PhoneNumber    string `json:"phone_number"`
-	PersonnalEmail string `json:"personnal_email" validate:"omitempty,email"`
-	Birthday       string `json:"birthday"`
-	Department     string `json:"department" validate:"required"`
-	Avatar         string `json:"avatar"`
-	Gender         int    `json:"gender" validate:"required"`
-	RoleID         int    `json:"role_id" validate:"required"`
+	FirstName         string `json:"first_name" validate:"required"`
+	LastName          string `json:"last_name" validate:"required"`
+	Email             string `json:"email" validate:"required,email"`
+	Password          string `json:"password" validate:"required"`
+	PhoneNumber       string `json:"phone_number"`
+	PersonnalEmail    string `json:"personnal_email" validate:"omitempty,email"`
+	Birthday          string `json:"birthday"`
+	Department        string `json:"department" validate:"required"`
+	Avatar            string `json:"avatar"`
+	Gender            int    `json:"gender" validate:"required"`
+	RoleID            int    `json:"role_id" validate:"required"`
+	CompanyJoinedDate string `json:"company_joined_date"`
 }

@@ -1,8 +1,6 @@
 package models
 
 import (
-	"time"
-
 	cm "orientation-training-api/internal/common"
 )
 
@@ -14,11 +12,11 @@ type UserProfile struct {
 	Avatar            string
 	FirstName         string
 	LastName          string
-	Birthday          time.Time
+	Birthday          string
 	PhoneNumber       string
 	PersonalEmail     string
 	Department        string
-	CompanyJoinedDate time.Time
+	CompanyJoinedDate string
 	Introduce         string
 	Gender            int
 }
