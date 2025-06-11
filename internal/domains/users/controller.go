@@ -3,6 +3,7 @@ package users
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	cf "orientation-training-api/configs"
@@ -11,6 +12,7 @@ import (
 	param "orientation-training-api/internal/interfaces/requestparams"
 	resp "orientation-training-api/internal/interfaces/response"
 	m "orientation-training-api/internal/models"
+	gc "orientation-training-api/internal/platform/cloud"
 	"orientation-training-api/internal/platform/utils"
 
 	valid "github.com/asaskevich/govalidator"
@@ -29,6 +31,7 @@ type UserController struct {
 	ModuleRepo       rp.ModuleRepository
 	ModuleItemRepo   rp.ModuleItemRepository
 	QuizRepo         rp.QuizRepository
+	cloud            gc.StorageUtility
 }
 
 func NewUserController(
@@ -39,6 +42,8 @@ func NewUserController(
 	moduleRepo rp.ModuleRepository,
 	moduleItemRepo rp.ModuleItemRepository,
 	quizRepo rp.QuizRepository,
+	cloud gc.StorageUtility,
+
 ) (ctr *UserController) {
 	ctr = &UserController{
 		cm.BaseController{},
@@ -48,6 +53,7 @@ func NewUserController(
 		moduleRepo,
 		moduleItemRepo,
 		quizRepo,
+		cloud,
 	}
 	ctr.Init(logger)
 	return
@@ -630,4 +636,114 @@ func calculateCourseProgress(progress m.UserProgress, moduleRepo rp.ModuleReposi
 	}
 
 	return percentage
+}
+
+// UpdateProfile updates a user's profile information
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) UpdateProfile(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+	userID := userProfile.ID
+
+	updateProfileParams := new(param.UpdateProfileParams)
+	if err := c.Bind(updateProfileParams); err != nil {
+		ctr.Logger.Errorf("Error binding request params: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid request parameters",
+		})
+	}
+
+	if _, err := valid.ValidateStruct(updateProfileParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	if updateProfileParams.Avatar != "" {
+		parts := strings.SplitN(updateProfileParams.Avatar, ",", 2)
+		if len(parts) != 2 {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Avatar Format",
+			})
+		}
+
+		mimeType := parts[0]
+		base64Data := parts[1]
+
+		formatImageAvatar := ""
+		if strings.HasPrefix(mimeType, "data:image/") {
+			formatImageAvatar = strings.TrimPrefix(mimeType, "data:image/")
+			formatImageAvatar = strings.Split(formatImageAvatar, ";")[0]
+		}
+
+		if formatImageAvatar == "" {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Image Format",
+			})
+		}
+
+		if _, check := utils.FindStringInArray(cf.AllowFormatImageList, formatImageAvatar); !check {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "The Avatar field must be an image",
+			})
+		}
+
+		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
+		nameAvatar := fmt.Sprintf("%d_%d.%s", userID, millisecondTimeNow, formatImageAvatar)
+
+		err := ctr.cloud.UploadFileToCloud(base64Data, nameAvatar, cf.AvatarFolderGCS)
+		if err != nil {
+			ctr.Logger.Error(err)
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Upload Avatar error",
+			})
+		}
+
+		updateProfileParams.Avatar = ctr.cloud.GetURL(nameAvatar, cf.AvatarFolderGCS)
+	}
+
+	err := ctr.UserRepo.UpdateUserProfile(userID, updateProfileParams)
+	if err != nil {
+		ctr.Logger.Errorf("Error updating user profile: %v", err)
+
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to update profile",
+		})
+	}
+
+	updatedUser, err := ctr.UserRepo.GetUserProfile(int(userID))
+	if err != nil {
+		ctr.Logger.Errorf("Error getting updated user profile: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.SuccessResponseCode,
+			Message: "Profile updated successfully, but failed to fetch updated data",
+		})
+	}
+
+	dataResponse := map[string]interface{}{
+		"id":           updatedUser.ID,
+		"email":        updatedUser.Email,
+		"phone_number": updatedUser.UserProfile.PhoneNumber,
+		"first_name":   updatedUser.UserProfile.FirstName,
+		"last_name":    updatedUser.UserProfile.LastName,
+		"fullname":     updatedUser.UserProfile.FirstName + " " + updatedUser.UserProfile.LastName,
+		"avatar":       updatedUser.UserProfile.Avatar,
+		"birthday":     updatedUser.UserProfile.Birthday,
+		"role_id":      updatedUser.RoleID,
+		"role_name":    updatedUser.Role.Name,
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Profile updated successfully",
+		Data:    dataResponse,
+	})
 }

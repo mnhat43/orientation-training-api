@@ -53,10 +53,9 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	cskwRepo := cskw.NewPgCourseSkillKeywordRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
-
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
-		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo),
+		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo, gcsStorage),
 		courseCtr:       c.NewCourseController(logger, courseRepo, ucRepo, upRepo, moduleRepo, moduleItemRepo, userRepo, cskwRepo, gcsStorage),
 		moduleCtr:       md.NewModuleController(logger, moduleRepo, moduleItemRepo, courseRepo),
 		moduleItemCtr:   mdi.NewModuleItemController(logger, moduleItemRepo, quizRepo, gcsStorage),
@@ -79,6 +78,7 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 	})
 	g.POST("/register", r.userCtr.Register)
 	g.GET("/profile", r.userCtr.GetLoginUser, isLoggedIn)
+	g.POST("/update-profile", r.userCtr.UpdateProfile, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/list-trainee", r.userCtr.GetListTrainee, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 
 	g.GET("/employee-overview", r.userCtr.GetEmployeeOverview, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)

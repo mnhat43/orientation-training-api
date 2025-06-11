@@ -2,7 +2,6 @@ package requestparams
 
 import (
 	"time"
-	// m "orientation-training-api/internal/models"
 )
 
 type UserProfileListParams struct {
@@ -18,6 +17,14 @@ type UserProfileListParams struct {
 
 type UserInfoParams struct {
 	UserID int `json:"user_id" valid:"required"`
+}
+
+type UpdateProfileParams struct {
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	PhoneNumber string `json:"phone_number"`
+	Birthday    string `json:"birthday"`
+	Avatar      string `json:"avatar"`
 }
 
 type AllUserName struct {

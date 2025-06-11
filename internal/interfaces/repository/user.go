@@ -1,6 +1,7 @@
 package repository
 
 import (
+	param "orientation-training-api/internal/interfaces/requestparams"
 	m "orientation-training-api/internal/models"
 )
 
@@ -13,4 +14,5 @@ type UserRepository interface {
 	GetUsersWithoutProgress(roleID int) ([]m.User, error)
 	CreateUser(user m.User) (int, error)
 	CheckEmailExists(email string) (bool, error)
+	UpdateUserProfile(userID int, profileParams *param.UpdateProfileParams) error
 }

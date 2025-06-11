@@ -2,6 +2,7 @@ package users
 
 import (
 	cm "orientation-training-api/internal/common"
+	param "orientation-training-api/internal/interfaces/requestparams"
 	"orientation-training-api/internal/models"
 	"orientation-training-api/internal/platform/utils"
 
@@ -158,4 +159,33 @@ func (repo *PgUserRepository) GetUsersWithoutProgress(roleID int) ([]m.User, err
 	}
 
 	return users, err
+}
+
+// UpdateUserProfile updates a user's profile information and returns the updated user
+func (repo *PgUserRepository) UpdateUserProfile(userID int, profileParams *param.UpdateProfileParams) error {
+	_, err := repo.GetUserProfile(userID)
+	if err != nil {
+		repo.Logger.Errorf("Error getting user profile: %+v", err)
+		return err
+	}
+
+	updateQuery := repo.DB.Model(&m.UserProfile{}).
+		Set("first_name = ?", profileParams.FirstName).
+		Set("last_name = ?", profileParams.LastName).
+		Set("phone_number = ?", profileParams.PhoneNumber).
+		Set("birthday = ?", profileParams.Birthday).
+		Set("updated_at = ?", utils.TimeNowUTC())
+
+	if profileParams.Avatar != "" {
+		updateQuery = updateQuery.Set("avatar = ?", profileParams.Avatar)
+	}
+
+	_, err = updateQuery.Where("user_id = ?", userID).Update()
+
+	if err != nil {
+		repo.Logger.Errorf("Error updating user profile: %+v", err)
+		return err
+	}
+
+	return nil
 }
