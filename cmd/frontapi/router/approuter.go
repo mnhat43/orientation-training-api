@@ -77,6 +77,8 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 		SigningKey: []byte(keyTokenAuth),
 	})
 	g.POST("/register", r.userCtr.Register)
+	g.POST("/change-password", r.userCtr.ChangePassword, isLoggedIn, r.userMw.InitUserProfile)
+
 	g.GET("/profile", r.userCtr.GetLoginUser, isLoggedIn)
 	g.POST("/update-profile", r.userCtr.UpdateProfile, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/list-trainee", r.userCtr.GetListTrainee, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)

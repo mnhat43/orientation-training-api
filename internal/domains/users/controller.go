@@ -747,3 +747,68 @@ func (ctr *UserController) UpdateProfile(c echo.Context) error {
 		Data:    dataResponse,
 	})
 }
+
+// ChangePassword allows a user to change their password
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) ChangePassword(c echo.Context) error {
+	userProfile := c.Get("user_profile").(m.User)
+	userID := userProfile.ID
+
+	changePasswordParams := new(param.ChangePasswordParams)
+	if err := c.Bind(changePasswordParams); err != nil {
+		ctr.Logger.Errorf("Error binding request params: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid request parameters",
+		})
+	}
+
+	if _, err := valid.ValidateStruct(changePasswordParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	if changePasswordParams.NewPassword != changePasswordParams.ConfirmPassword {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "New password and confirmation password do not match",
+		})
+	}
+
+	user, err := ctr.UserRepo.GetUserProfile(userID)
+	if err != nil {
+		ctr.Logger.Errorf("Error getting user profile: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to retrieve user information",
+		})
+	}
+
+	currentPasswordHash := utils.GetSHA256Hash(changePasswordParams.CurrentPassword)
+	if currentPasswordHash != user.Password {
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Current password is incorrect",
+		})
+	}
+
+	newPasswordHash := utils.GetSHA256Hash(changePasswordParams.NewPassword)
+
+	err = ctr.UserRepo.UpdatePassword(userID, newPasswordHash)
+	if err != nil {
+		ctr.Logger.Errorf("Error updating password: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to update password",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Password updated successfully",
+	})
+}

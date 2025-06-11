@@ -15,4 +15,5 @@ type UserRepository interface {
 	CreateUser(user m.User) (int, error)
 	CheckEmailExists(email string) (bool, error)
 	UpdateUserProfile(userID int, profileParams *param.UpdateProfileParams) error
+	UpdatePassword(userID int, newHashedPassword string) error
 }

@@ -189,3 +189,19 @@ func (repo *PgUserRepository) UpdateUserProfile(userID int, profileParams *param
 
 	return nil
 }
+
+// UpdatePassword updates a user's password
+func (repo *PgUserRepository) UpdatePassword(userID int, newHashedPassword string) error {
+	_, err := repo.DB.Model(&m.User{}).
+		Set("password = ?", newHashedPassword).
+		Set("updated_at = ?", utils.TimeNowUTC()).
+		Where("id = ?", userID).
+		Update()
+
+	if err != nil {
+		repo.Logger.Errorf("Error updating user password: %+v", err)
+		return err
+	}
+
+	return nil
+}
