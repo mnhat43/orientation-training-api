@@ -225,4 +225,6 @@ func (r *AppRouter) AppFeedbackRoute(g *echo.Group) {
 	g.POST("/submit", r.appFeedbackCtr.SubmitAppFeedback, isLoggedIn, r.userMw.InitUserProfile)
 	g.GET("/list", r.appFeedbackCtr.GetAppFeedbackList, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
 	g.POST("/delete", r.appFeedbackCtr.DeleteAppFeedback, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
+
+	g.GET("/list-top", r.appFeedbackCtr.GetTopAppFeedback)
 }

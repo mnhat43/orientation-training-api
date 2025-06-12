@@ -108,6 +108,51 @@ func (repo *PgAppFeedbackRepository) GetAppFeedbackCount() (int, error) {
 	return count, nil
 }
 
+// GetTopAppFeedback gets the top 3 app feedbacks with highest ratings
+func (repo *PgAppFeedbackRepository) GetTopAppFeedback() ([]*response.FeedbackWithUser, error) {
+	var feedbacks []*models.AppFeedback
+
+	query := repo.DB.Model(&feedbacks).
+		Where("deleted_at IS NULL").
+		Order("rating DESC").
+		Limit(3)
+
+	err := query.Select()
+
+	if err != nil {
+		repo.Logger.Errorf("Error getting top app feedback: %v", err)
+		return nil, err
+	}
+
+	result := make([]*response.FeedbackWithUser, 0, len(feedbacks))
+
+	for _, feedback := range feedbacks {
+		var user models.User
+		err := repo.DB.Model(&user).
+			Column("usr.*").
+			Where("usr.id = ?", feedback.UserID).
+			Relation("UserProfile").
+			Relation("Role").
+			First()
+
+		if err != nil {
+			repo.Logger.Errorf("Error getting user for feedback: %v", err)
+			continue
+		}
+
+		feedbackWithUser := response.CreateFeedbackWithUserFromAppFeedback(
+			feedback,
+			&user,
+			&user.UserProfile,
+			user.Role.Name,
+		)
+
+		result = append(result, feedbackWithUser)
+	}
+
+	return result, nil
+}
+
 // DeleteAppFeedback soft deletes an app feedback
 func (repo *PgAppFeedbackRepository) DeleteAppFeedback(id int) error {
 	feedback := &m.AppFeedback{BaseModel: cm.BaseModel{ID: id}}

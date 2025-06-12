@@ -2,9 +2,9 @@ package requestparams
 
 // SubmitAppFeedbackRequest represents a request to submit app feedback
 type SubmitAppFeedbackRequest struct {
-	Rating      int    `json:"rating" valid:"required,range(1|5)"`
-	Feedback    string `json:"feedback" valid:"required"`
-	SubmittedAt string `json:"submittedAt,omitempty"`
+	Rating      float64 `json:"rating" valid:"required,range(1|5)"`
+	Feedback    string  `json:"feedback" valid:"required"`
+	SubmittedAt string  `json:"submittedAt,omitempty"`
 }
 
 // DeleteAppFeedbackRequest represents a request to delete app feedback

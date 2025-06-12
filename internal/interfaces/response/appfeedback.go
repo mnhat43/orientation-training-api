@@ -8,7 +8,7 @@ import (
 // FeedbackWithUser represents app feedback with associated user information
 type FeedbackWithUser struct {
 	ID        int       `json:"id"`
-	Rating    int       `json:"rating"`
+	Rating    float64   `json:"rating"`
 	Feedback  string    `json:"feedback"`
 	SubmitAt  time.Time `json:"submit_at"`
 	CreatedAt time.Time `json:"created_at"`
@@ -18,6 +18,7 @@ type FeedbackWithUser struct {
 		FirstName string `json:"first_name"`
 		LastName  string `json:"last_name"`
 		Role      string `json:"role"`
+		Avatar    string `json:"avatar"`
 	} `json:"user"`
 }
 
@@ -30,12 +31,12 @@ func CreateFeedbackWithUserFromAppFeedback(feedback *models.AppFeedback, user *m
 		SubmitAt:  feedback.SubmitAt,
 		CreatedAt: feedback.CreatedAt,
 	}
-
 	feedbackWithUser.User.ID = user.ID
 	feedbackWithUser.User.Email = user.Email
 	feedbackWithUser.User.FirstName = userProfile.FirstName
 	feedbackWithUser.User.LastName = userProfile.LastName
 	feedbackWithUser.User.Role = roleName
+	feedbackWithUser.User.Avatar = userProfile.Avatar
 
 	return feedbackWithUser
 }

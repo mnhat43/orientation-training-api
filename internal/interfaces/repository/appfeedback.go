@@ -12,4 +12,5 @@ type AppFeedbackRepository interface {
 	GetAppFeedbackByID(id int) (*models.AppFeedback, error)
 	GetAppFeedbackCount() (int, error)
 	DeleteAppFeedback(id int) error
+	GetTopAppFeedback() ([]*response.FeedbackWithUser, error)
 }

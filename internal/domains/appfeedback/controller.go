@@ -98,6 +98,37 @@ func (ctr *AppFeedbackController) GetAppFeedbackList(c echo.Context) error {
 	})
 }
 
+// GetTopAppFeedback handles fetching the top 3 feedback entries with highest ratings
+func (ctr *AppFeedbackController) GetTopAppFeedback(c echo.Context) error {
+	feedbacks, err := ctr.AppFeedbackRepo.GetTopAppFeedback()
+	if err != nil {
+		ctr.Logger.Errorf("Error getting top app feedback: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to get top feedback",
+			Data:    nil,
+		})
+	}
+	// Transform the feedback into the requested response format
+	topFeedback := make([]map[string]interface{}, 0, len(feedbacks))
+	for _, fb := range feedbacks {
+		name := fb.User.FirstName + " " + fb.User.LastName
+		topFeedback = append(topFeedback, map[string]interface{}{
+			"name":     name,
+			"role":     fb.User.Role,
+			"rating":   fb.Rating,
+			"feedback": fb.Feedback,
+			"avatar":   fb.User.Avatar,
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Top feedback retrieved successfully",
+		Data:    topFeedback,
+	})
+}
+
 // DeleteAppFeedback handles deleting app feedback
 func (ctr *AppFeedbackController) DeleteAppFeedback(c echo.Context) error {
 	req := new(param.DeleteAppFeedbackRequest)
