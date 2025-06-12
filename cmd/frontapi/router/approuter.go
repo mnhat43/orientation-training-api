@@ -1,6 +1,7 @@
 package router
 
 import (
+	af "orientation-training-api/internal/domains/appfeedback"
 	"orientation-training-api/internal/domains/auth"
 	c "orientation-training-api/internal/domains/courses"
 	cskw "orientation-training-api/internal/domains/courseskillkeyword"
@@ -33,6 +34,7 @@ type AppRouter struct {
 	templatePathCtr *tp.TemplatePathController
 	quizCtr         *quiz.QuizController
 	sKeyCtr         *skey.SkillKeywordController
+	appFeedbackCtr  *af.AppFeedbackController
 
 	// adminCtr *ad.Controller
 
@@ -51,9 +53,9 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 	quizRepo := quiz.NewPgQuizRepository(logger)
 	skillKeywordRepo := skey.NewPgSkillKeywordRepository(logger)
 	cskwRepo := cskw.NewPgCourseSkillKeywordRepository(logger)
+	appFeedbackRepo := af.NewPgAppFeedbackRepository(logger)
 
 	gcsStorage := gc.NewGcsStorage(logger)
-
 	r = &AppRouter{
 		authCtr:         auth.NewAuthController(logger, userRepo),
 		userCtr:         u.NewUserController(logger, userRepo, upRepo, courseRepo, moduleRepo, moduleItemRepo, quizRepo, cskwRepo, gcsStorage),
@@ -65,6 +67,7 @@ func NewAppRouter(logger echo.Logger) (r *AppRouter) {
 		templatePathCtr: tp.NewTemplatePathController(logger, templatePathRepo, courseRepo),
 		quizCtr:         quiz.NewQuizController(logger, quizRepo),
 		sKeyCtr:         skey.NewSkillKeywordController(logger, skillKeywordRepo),
+		appFeedbackCtr:  af.NewAppFeedbackController(logger, appFeedbackRepo),
 
 		userMw: u.NewUserMiddleware(logger, userRepo),
 	}
@@ -201,7 +204,7 @@ func (r *AppRouter) QuizRoute(g *echo.Group) {
 	g.POST("/review-essay", r.quizCtr.ReviewEssaySubmission, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 }
 
-func (r *AppRouter) SkillKeyword(g *echo.Group) {
+func (r *AppRouter) SkillKeywordRoute(g *echo.Group) {
 	keyTokenAuth := utils.GetKeyToken()
 	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningKey: []byte(keyTokenAuth),
@@ -211,4 +214,15 @@ func (r *AppRouter) SkillKeyword(g *echo.Group) {
 	g.POST("/create", r.sKeyCtr.CreateSkillKeyword, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/update", r.sKeyCtr.UpdateSkillKeyword, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/delete", r.sKeyCtr.DeleteSkillKeyword, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+}
+
+func (r *AppRouter) AppFeedbackRoute(g *echo.Group) {
+	keyTokenAuth := utils.GetKeyToken()
+	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
+		SigningKey: []byte(keyTokenAuth),
+	})
+
+	g.POST("/submit", r.appFeedbackCtr.SubmitAppFeedback, isLoggedIn, r.userMw.InitUserProfile)
+	g.GET("/list", r.appFeedbackCtr.GetAppFeedbackList, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
+	g.POST("/delete", r.appFeedbackCtr.DeleteAppFeedback, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
 }
