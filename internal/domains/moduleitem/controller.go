@@ -195,7 +195,6 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 				Message: "Invalid File Format",
 			})
 		}
-
 		// Nếu là slide, có thể kiểm tra định dạng file slide (ví dụ: pdf, ppt, pptx)
 		if createModuleItemParams.ItemType == "slide" {
 			allowedSlides := []string{
@@ -227,11 +226,62 @@ func (ctr *ModuleItemController) AddModuleItem(c echo.Context) error {
 					Message: "File not allowed",
 				})
 			}
+		} // Tạo tên file bao gồm phần mở rộng để đảm bảo định dạng gốc
+		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
+		fileExt := ""
+
+		// Xác định phần mở rộng phù hợp dựa trên MIME type
+		// Xử lý cả file thường và slide để đảm bảo định dạng đúng
+		if createModuleItemParams.ItemType == "file" || createModuleItemParams.ItemType == "slide" {
+			// Kiểm tra định dạng file từ chuỗi mime type đầy đủ
+			fullMimeType := mimeType
+			// Xác định phần mở rộng dựa trên MIME type
+			switch formatFile {
+			// Định dạng file thông thường
+			case "pdf", "x-pdf":
+				fileExt = ".pdf"
+			case "vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+				fileExt = ".xlsx"
+			case "vnd.openxmlformats-officedocument.wordprocessingml.document":
+				fileExt = ".docx"
+
+			// Định dạng slide
+			case "ppt", "vnd.ms-powerpoint":
+				fileExt = ".ppt"
+			case "pptx", "vnd.openxmlformats-officedocument.presentationml.presentation":
+				fileExt = ".pptx"
+			case "vnd.oasis.opendocument.presentation":
+				fileExt = ".odp"
+			case "vnd.ms-powerpoint.presentation.macroenabled.12":
+				fileExt = ".pptm"
+			case "vnd.ms-powerpoint.slideshow.macroenabled.12", "vnd.ms-powerpoint.slideshow.macroEnabled.12":
+				fileExt = ".ppsm"
+			case "vnd.openxmlformats-officedocument.presentationml.template":
+				fileExt = ".potx"
+			case "vnd.openxmlformats-officedocument.presentationml.slideshow":
+				fileExt = ".ppsx"
+			case "vnd.ms-powerpoint.slideshow":
+				fileExt = ".pps"
+			default:
+				// Nếu không nhận dạng được format từ MIME type, thử đoán từ tên file gốc
+				if strings.Contains(fullMimeType, "pdf") {
+					fileExt = ".pdf"
+				} else if strings.Contains(fullMimeType, "powerpoint") ||
+					strings.Contains(fullMimeType, "presentation") {
+					fileExt = ".pptx" // Mặc định cho PowerPoint hiện đại
+				} else {
+					fileExt = ".pptx" // Mặc định
+					ctr.Logger.Warnf("Không nhận dạng được định dạng slide chính xác, dùng .pptx mặc định. MIME: %s", fullMimeType)
+				}
+			}
+
+			// Log để theo dõi
+			ctr.Logger.Infof("Slide file extension determined: %s from format: %s", fileExt, formatFile)
 		}
 
-		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
-		fileName := strconv.Itoa(createModuleItemParams.ModuleID) + "_" + strconv.Itoa(millisecondTimeNow)
+		fileName := strconv.Itoa(createModuleItemParams.ModuleID) + "_" + strconv.Itoa(millisecondTimeNow) + fileExt
 
+		// Đảm bảo header Content-Type được thiết lập chính xác
 		err := ctr.cloud.UploadFileToCloud(
 			base64Data,
 			fileName,
@@ -380,7 +430,6 @@ func (ctr *ModuleItemController) DeleteModuleItem(c echo.Context) error {
 			Message: err.Error(),
 		})
 	}
-
 	moduleItem, er := ctr.ModuleItemRepo.GetModuleItemByID(moduleItemIDParam.ModuleItemID)
 
 	if er != nil {
@@ -391,8 +440,13 @@ func (ctr *ModuleItemController) DeleteModuleItem(c echo.Context) error {
 		})
 	}
 
-	if moduleItem.ItemType == "file" {
-		err := ctr.cloud.DeleteFileCloud(moduleItem.Resource, cf.FileFolderGCS)
+	if moduleItem.ItemType == "file" || moduleItem.ItemType == "slide" {
+		// Lấy tên file từ resource
+		fileName := moduleItem.Resource
+
+		// Đối với slide, tên file có thể đã được lưu với đuôi mở rộng
+		// Nếu không có đuôi mở rộng, hệ thống vẫn xử lý được dựa trên tên file đã lưu trong DB
+		err := ctr.cloud.DeleteFileCloud(fileName, cf.FileFolderGCS)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
 				Status:  cf.FailResponseCode,
