@@ -205,3 +205,112 @@ func (repo *PgUserRepository) UpdatePassword(userID int, newHashedPassword strin
 
 	return nil
 }
+
+// GetAllUsersExceptRole retrieves all users except those with the specified role ID
+func (repo *PgUserRepository) GetAllUsersExceptRole(roleID int) ([]m.User, error) {
+	var users []m.User
+	err := repo.DB.Model(&users).
+		Column("usr.*").
+		Where("usr.role_id != ?", roleID).
+		Where("usr.deleted_at is null").
+		Relation("UserProfile").
+		Relation("Role").
+		Select()
+
+	if err != nil {
+		repo.Logger.Errorf("Error getting users except role ID %d: %+v", roleID, err)
+	}
+
+	return users, err
+}
+
+// AdminUpdateUser updates a user's profile and role information by admin
+func (repo *PgUserRepository) AdminUpdateUser(userID int, profileParams *param.AdminUpdateUserParams) error {
+	tx, err := repo.DB.Begin()
+	if err != nil {
+		repo.Logger.Errorf("Error starting transaction: %+v", err)
+		return err
+	}
+
+	// Update user profile
+	_, err = tx.Model(&m.UserProfile{
+		FirstName:         profileParams.FirstName,
+		LastName:          profileParams.LastName,
+		PhoneNumber:       profileParams.PhoneNumber,
+		Birthday:          profileParams.Birthday,
+		Department:        profileParams.Department,
+		Avatar:            profileParams.Avatar,
+		Gender:            profileParams.Gender,
+		CompanyJoinedDate: profileParams.CompanyJoinedDate,
+	}).
+		Column("first_name", "last_name", "phone_number", "birthday",
+			"department", "avatar", "gender", "company_joined_date", "updated_at").
+		Where("user_id = ?", userID).
+		Where("deleted_at is null").
+		Update()
+
+	if err != nil {
+		tx.Rollback()
+		repo.Logger.Errorf("Error updating user profile: %+v", err)
+		return err
+	}
+
+	// If role ID is provided, update user role
+	if profileParams.RoleID > 0 {
+		_, err = tx.Model(&m.User{
+			RoleID: profileParams.RoleID,
+		}).
+			Column("role_id", "updated_at").
+			Where("id = ?", userID).
+			Where("deleted_at is null").
+			Update()
+
+		if err != nil {
+			tx.Rollback()
+			repo.Logger.Errorf("Error updating user role: %+v", err)
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// DeleteUser soft deletes a user by setting deleted_at
+func (repo *PgUserRepository) DeleteUser(userID int) error {
+	now := utils.TimeNowUTC()
+
+	// Begin transaction
+	tx, err := repo.DB.Begin()
+	if err != nil {
+		repo.Logger.Errorf("Error starting transaction: %+v", err)
+		return err
+	}
+
+	// Soft delete user profile
+	_, err = tx.Model(&m.UserProfile{}).
+		Set("deleted_at = ?", now).
+		Where("user_id = ?", userID).
+		Where("deleted_at is null").
+		Update()
+
+	if err != nil {
+		tx.Rollback()
+		repo.Logger.Errorf("Error soft deleting user profile: %+v", err)
+		return err
+	}
+
+	// Soft delete user
+	_, err = tx.Model(&m.User{}).
+		Set("deleted_at = ?", now).
+		Where("id = ?", userID).
+		Where("deleted_at is null").
+		Update()
+
+	if err != nil {
+		tx.Rollback()
+		repo.Logger.Errorf("Error soft deleting user: %+v", err)
+		return err
+	}
+
+	return tx.Commit()
+}

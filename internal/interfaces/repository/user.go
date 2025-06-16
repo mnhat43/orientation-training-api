@@ -10,10 +10,13 @@ type UserRepository interface {
 	UpdateLastLogin(userID int) error
 	GetUserProfile(id int) (m.User, error)
 	GetUsersByRoleID(roleID int) ([]m.User, error)
+	GetAllUsersExceptRole(roleID int) ([]m.User, error)
 	GetUserProgressByUserID(userID int) ([]m.UserProgress, error)
 	GetUsersWithoutProgress(roleID int) ([]m.User, error)
 	CreateUser(user m.User) (int, error)
 	CheckEmailExists(email string) (bool, error)
 	UpdateUserProfile(userID int, profileParams *param.UpdateProfileParams) error
+	AdminUpdateUser(userID int, profileParams *param.AdminUpdateUserParams) error
 	UpdatePassword(userID int, newHashedPassword string) error
+	DeleteUser(userID int) error
 }

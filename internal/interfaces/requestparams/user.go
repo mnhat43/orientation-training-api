@@ -58,3 +58,16 @@ type RegisterParams struct {
 	RoleID            int    `json:"role_id" validate:"required"`
 	CompanyJoinedDate string `json:"company_joined_date"`
 }
+
+type AdminUpdateUserParams struct {
+	UserID            int    `json:"user_id" valid:"required~User ID is required"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	PhoneNumber       string `json:"phone_number"`
+	Birthday          string `json:"birthday"`
+	Department        string `json:"department"`
+	Avatar            string `json:"avatar"`
+	Gender            int    `json:"gender"`
+	CompanyJoinedDate string `json:"company_joined_date"`
+	RoleID            int    `json:"role_id"`
+}

@@ -86,9 +86,11 @@ func (r *AppRouter) UserRoute(g *echo.Group) {
 	g.GET("/profile", r.userCtr.GetLoginUser, isLoggedIn)
 	g.POST("/update-profile", r.userCtr.UpdateProfile, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/list-trainee", r.userCtr.GetListTrainee, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
-
 	g.GET("/employee-overview", r.userCtr.GetEmployeeOverview, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/employee-detail", r.userCtr.EmployeeDetail, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.GET("/all", r.userCtr.GetAllUsers, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
+	g.POST("/update-user", r.userCtr.AdminUpdateUser, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
+	g.POST("/delete-user", r.userCtr.DeleteUser, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckAdmin)
 }
 
 func (r *AppRouter) AuthRoute(g *echo.Group) {

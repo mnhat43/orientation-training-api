@@ -909,3 +909,237 @@ func (ctr *UserController) ChangePassword(c echo.Context) error {
 		Message: "Password updated successfully",
 	})
 }
+
+// GetAllUsers retrieves all users except those with admin role
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) GetAllUsers(c echo.Context) error {
+	users, err := ctr.UserRepo.GetAllUsersExceptRole(cf.AdminRoleID)
+	if err != nil {
+		ctr.Logger.Errorf("Failed to fetch users: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to fetch users",
+		})
+	}
+	userList := []map[string]interface{}{}
+	for _, user := range users {
+		userInfo := map[string]interface{}{
+			"user_id":             user.ID,
+			"first_name":          user.UserProfile.FirstName,
+			"last_name":           user.UserProfile.LastName,
+			"fullname":            user.UserProfile.FirstName + " " + user.UserProfile.LastName,
+			"email":               user.Email,
+			"role_name":           user.Role.Name,
+			"role_id":             user.RoleID,
+			"department":          user.UserProfile.Department,
+			"phone_number":        user.UserProfile.PhoneNumber,
+			"birthday":            user.UserProfile.Birthday,
+			"gender":              user.UserProfile.Gender,
+			"company_joined_date": user.UserProfile.CompanyJoinedDate,
+			"last_login":          user.LastLoginTime,
+			"created_at":          user.CreatedAt,
+			"avatar":              user.UserProfile.Avatar,
+		}
+		userList = append(userList, userInfo)
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Users retrieved successfully",
+		Data:    userList,
+	})
+}
+
+// AdminUpdateUser allows an admin to update another user's information
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) AdminUpdateUser(c echo.Context) error {
+	updateParams := new(param.AdminUpdateUserParams)
+	if err := c.Bind(updateParams); err != nil {
+		ctr.Logger.Errorf("Error binding request params: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid request parameters",
+		})
+	}
+
+	if _, err := valid.ValidateStruct(updateParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+	// Check if user exists
+	_, err := ctr.UserRepo.GetUserProfile(updateParams.UserID)
+	if err != nil {
+		if err.Error() == pg.ErrNoRows.Error() {
+			return c.JSON(http.StatusNotFound, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "User not found",
+			})
+		}
+		ctr.Logger.Errorf("Error checking user existence: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "System error",
+		})
+	}
+
+	// Process avatar if it's in base64 format
+	if updateParams.Avatar != "" && strings.HasPrefix(updateParams.Avatar, "data:") {
+		parts := strings.SplitN(updateParams.Avatar, ",", 2)
+		if len(parts) != 2 {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Avatar Format",
+			})
+		}
+
+		mimeType := parts[0]
+		base64Data := parts[1]
+
+		formatImageAvatar := ""
+		if strings.HasPrefix(mimeType, "data:image/") {
+			formatImageAvatar = strings.TrimPrefix(mimeType, "data:image/")
+			formatImageAvatar = strings.Split(formatImageAvatar, ";")[0]
+		}
+
+		if formatImageAvatar == "" {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Image Format",
+			})
+		}
+
+		if _, check := utils.FindStringInArray(cf.AllowFormatImageList, formatImageAvatar); !check {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "The Avatar field must be an image",
+			})
+		}
+
+		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
+		nameAvatar := fmt.Sprintf("%d_%d.%s", updateParams.UserID, millisecondTimeNow, formatImageAvatar)
+
+		err := ctr.cloud.UploadFileToCloud(base64Data, nameAvatar, cf.AvatarFolderGCS)
+		if err != nil {
+			ctr.Logger.Error(err)
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Upload Avatar error",
+			})
+		}
+
+		updateParams.Avatar = ctr.cloud.GetURL(nameAvatar, cf.AvatarFolderGCS)
+	}
+
+	// Update user information
+	err = ctr.UserRepo.AdminUpdateUser(updateParams.UserID, updateParams)
+	if err != nil {
+		ctr.Logger.Errorf("Error updating user: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to update user information",
+		})
+	}
+
+	// Get updated user data
+	updatedUser, err := ctr.UserRepo.GetUserProfile(updateParams.UserID)
+	if err != nil {
+		ctr.Logger.Warnf("User updated but failed to get updated data: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.SuccessResponseCode,
+			Message: "User information updated successfully, but failed to fetch updated data",
+		})
+	}
+	// Return updated user data
+	dataResponse := map[string]interface{}{
+		"user_id":             updatedUser.ID,
+		"email":               updatedUser.Email,
+		"first_name":          updatedUser.UserProfile.FirstName,
+		"last_name":           updatedUser.UserProfile.LastName,
+		"fullname":            updatedUser.UserProfile.FirstName + " " + updatedUser.UserProfile.LastName,
+		"phone_number":        updatedUser.UserProfile.PhoneNumber,
+		"birthday":            updatedUser.UserProfile.Birthday,
+		"department":          updatedUser.UserProfile.Department,
+		"gender":              updatedUser.UserProfile.Gender,
+		"company_joined_date": updatedUser.UserProfile.CompanyJoinedDate,
+		"avatar":              updatedUser.UserProfile.Avatar,
+		"role_id":             updatedUser.RoleID,
+		"role_name":           updatedUser.Role.Name,
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "User information updated successfully",
+		Data:    dataResponse,
+	})
+}
+
+// DeleteUser allows an admin to delete a user from the system (soft delete)
+// Params: echo.Context
+// Returns: error
+func (ctr *UserController) DeleteUser(c echo.Context) error {
+	deleteUserParams := new(param.DeleteUserParams)
+
+	if err := c.Bind(deleteUserParams); err != nil {
+		ctr.Logger.Errorf("Error binding request params: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid request parameters",
+		})
+	}
+
+	if _, err := valid.ValidateStruct(deleteUserParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+
+	// Check if user exists
+	targetUser, err := ctr.UserRepo.GetUserProfile(deleteUserParams.UserId)
+	if err != nil {
+		if err.Error() == pg.ErrNoRows.Error() {
+			return c.JSON(http.StatusNotFound, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "User not found",
+			})
+		}
+		ctr.Logger.Errorf("Error checking user existence: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "System error",
+		})
+	}
+
+	// Don't allow deletion of the current user
+	userProfile := c.Get("user_profile").(m.User)
+	if userProfile.ID == deleteUserParams.UserId {
+		return c.JSON(http.StatusBadRequest, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Cannot delete your own account",
+		})
+	}
+
+	// Delete the user
+	err = ctr.UserRepo.DeleteUser(deleteUserParams.UserId)
+	if err != nil {
+		ctr.Logger.Errorf("Error deleting user: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Failed to delete user",
+		})
+	}
+
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: fmt.Sprintf("User %s (%s) deleted successfully", targetUser.Email, targetUser.UserProfile.FirstName+" "+targetUser.UserProfile.LastName),
+		Data: map[string]interface{}{
+			"user_id": deleteUserParams.UserId,
+		},
+	})
+}
