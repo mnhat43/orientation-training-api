@@ -10,12 +10,12 @@ type CreateCourseParams struct {
 }
 
 type UpdateCourseParams struct {
-	ID          int    `json:"course_id" valid:"required"`
-	Title       string `json:"title" form:"course_title" valid:"required"`
-	Description string `json:"description" form:"course_description"`
-	Thumbnail   string `json:"thumbnail" form:"course_thumbnail"`
-	Category    string `json:"category" form:"course_category" valid:"required"`
-	CreatedBy   int    `json:"created_by" form:"created_by" valid:"required"`
+	ID              int    `json:"course_id" valid:"required"`
+	Title           string `json:"title" form:"course_title"`
+	Description     string `json:"description" form:"course_description"`
+	Thumbnail       string `json:"thumbnail" form:"course_thumbnail"`
+	Category        string `json:"category" form:"course_category"`
+	SkillKeywordIDs []int  `json:"skill_keyword_ids"`
 }
 
 type CourseIDParam struct {

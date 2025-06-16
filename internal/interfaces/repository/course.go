@@ -13,7 +13,7 @@ type CourseRepository interface {
 	GetAllCourses() ([]m.Course, error)
 	SaveCourse(createCourseParams *param.CreateCourseParams, courseSkillKeywordRepo CourseSkillKeywordRepository) (m.Course, error)
 	InsertCourseWithTx(tx *pg.Tx, title, description, thumbnail string, category string, createdBy int) (m.Course, error)
-	UpdateCourse(courseParams *param.UpdateCourseParams, userCourseRepo UserCourseRepository) error
+	UpdateCourse(courseParams *param.UpdateCourseParams, userCourseRepo UserCourseRepository, courseSkillKeywordRepo CourseSkillKeywordRepository) error
 	DeleteCourse(courseID int) error
 	GetUserCourses(userID int) ([]m.Course, error)
 }

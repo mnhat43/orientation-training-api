@@ -36,8 +36,6 @@ type AppRouter struct {
 	sKeyCtr         *skey.SkillKeywordController
 	appFeedbackCtr  *af.AppFeedbackController
 
-	// adminCtr *ad.Controller
-
 	userMw *u.UserMiddleware
 	gcs    *gc.GcsStorage
 }
@@ -112,11 +110,9 @@ func (r *AppRouter) CourseRoute(g *echo.Group) {
 
 	g.POST("/get-course-list", r.courseCtr.GetCourseList, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/add-course", r.courseCtr.AddCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
-	// g.POST("/update-course", r.courseCtr.UpdateCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
+	g.POST("/update-course", r.courseCtr.UpdateCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/delete-course", r.courseCtr.DeleteCourse, isLoggedIn, r.userMw.InitUserProfile, r.userMw.CheckManager)
 	g.POST("/get-course-detail", r.courseCtr.GetCourseDetail, isLoggedIn, r.userMw.InitUserProfile)
-
-	// g.GET("/getuser", r.userCtr.GetLoginUser, isLoggedIn)
 
 }
 
@@ -160,7 +156,6 @@ func (r *AppRouter) UserProgressRoute(g *echo.Group) {
 	isLoggedIn := middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningKey: []byte(keyTokenAuth),
 	})
-	// g.POST("/get-all", r.upCtr.GetAllUserProgressByUserID, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/get-single", r.upCtr.GetSingleCourseProgress, isLoggedIn, r.userMw.InitUserProfile)
 	g.POST("/get-user-progress", r.upCtr.GetAllUserProgressByUserID, isLoggedIn, r.userMw.InitUserProfile)
 

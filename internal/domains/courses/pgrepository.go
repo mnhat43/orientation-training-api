@@ -5,7 +5,6 @@ import (
 	rp "orientation-training-api/internal/interfaces/repository"
 	param "orientation-training-api/internal/interfaces/requestparams"
 	m "orientation-training-api/internal/models"
-	"orientation-training-api/internal/platform/utils"
 
 	"github.com/go-pg/pg/v9"
 	"github.com/labstack/echo/v4"
@@ -80,7 +79,6 @@ func (repo *PgCourseRepository) SaveCourse(createCourseParams *param.CreateCours
 			return transErr
 		}
 
-		// Insert course skill keyword relations
 		if len(createCourseParams.SkillKeywordIDs) > 0 {
 			for _, skillKeywordID := range createCourseParams.SkillKeywordIDs {
 				transErr = courseSkillKeywordRepo.InsertCourseSkillKeywordWithTx(tx, course.ID, skillKeywordID)
@@ -115,58 +113,65 @@ func (repo *PgCourseRepository) InsertCourseWithTx(tx *pg.Tx, title string, desc
 // UpdateCourse : update course
 // Params : CourseID, Title,Thumbnail, Description
 // Returns : error
-func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCourseParams, userCourseRepo rp.UserCourseRepository) error {
-	currentCourse, err := repo.GetCourseByID(courseParams.ID)
-	if err != nil {
-		repo.Logger.Error()
-		return err
-	}
+func (repo *PgCourseRepository) UpdateCourse(courseParams *param.UpdateCourseParams, userCourseRepo rp.UserCourseRepository, courseSkillKeywordRepo rp.CourseSkillKeywordRepository) error {
+	err := repo.DB.RunInTransaction(func(tx *pg.Tx) error {
+		var transErr error
 
-	course := &m.Course{
-		Title:       courseParams.Title,
-		Description: courseParams.Description,
-		Thumbnail:   courseParams.Thumbnail,
-		Category:    courseParams.Category,
-		CreatedBy:   courseParams.CreatedBy,
-	}
+		updateQuery := tx.Model((*m.Course)(nil)).Where("id = ?", courseParams.ID)
 
-	users, transErr := userCourseRepo.SelectMembersInCourse(courseParams.ID)
-	if transErr != nil && transErr.Error() != pg.ErrNoRows.Error() {
-		repo.Logger.Error()
-		return transErr
-	}
+		updateQuery = updateQuery.Set("updated_at = NOW()")
 
-	var usersId []int
-	if len(users) > 0 {
-		for _, user := range users {
-			usersId = append(usersId, user.UserId)
+		if courseParams.Title != "" {
+			updateQuery = updateQuery.Set("title = ?", courseParams.Title)
 		}
-	}
+		if courseParams.Description != "" {
+			updateQuery = updateQuery.Set("description = ?", courseParams.Description)
+		}
+		if courseParams.Thumbnail != "" {
+			updateQuery = updateQuery.Set("thumbnail = ?", courseParams.Thumbnail)
+		}
+		if courseParams.Category != "" {
+			updateQuery = updateQuery.Set("category = ?", courseParams.Category)
+		}
 
-	if courseParams.CreatedBy != currentCourse.CreatedBy && !utils.FindIntInSlice(usersId, courseParams.CreatedBy) {
-		err = repo.DB.RunInTransaction(func(tx *pg.Tx) error {
-			var transErr error
-			if _, transErr = tx.Model(course).
-				Column("title", "description", "thumbnail", "category", "created_by", "updated_at").
-				Where("id = ?", courseParams.ID).
-				Update(); transErr != nil {
-				repo.Logger.Error()
-				return transErr
-			}
-
-			if transErr = userCourseRepo.InsertUserCourseWithTx(tx, courseParams.CreatedBy, courseParams.ID); transErr != nil {
-				repo.Logger.Error()
-				return transErr
-			}
-
+		if _, transErr = updateQuery.Update(); transErr != nil {
+			repo.Logger.Error()
 			return transErr
-		})
-	} else {
-		_, err = repo.DB.Model(course).
-			Column("title", "description", "thumbnail", "category", "created_by", "updated_at").
-			Where("id = ?", courseParams.ID).
-			Update()
-	}
+		}
+		if courseParams.SkillKeywordIDs != nil {
+			repo.Logger.Infof("Updating skill keywords for course %d. New keywords: %v", courseParams.ID, courseParams.SkillKeywordIDs)
+
+			existingKeywords, checkErr := courseSkillKeywordRepo.GetSkillKeywordsByCourseID(courseParams.ID)
+			if checkErr == nil {
+				repo.Logger.Infof("Course %d currently has %d skill keywords", courseParams.ID, len(existingKeywords))
+			}
+
+			repo.Logger.Infof("Force deleting ALL existing skill keywords for course %d", courseParams.ID)
+			if transErr = courseSkillKeywordRepo.DeleteByCourseIDWithTx(tx, courseParams.ID); transErr != nil {
+				repo.Logger.Errorf("Failed to delete existing skill keywords for course %d: %v", courseParams.ID, transErr)
+				return transErr
+			}
+
+			repo.Logger.Infof("Inserting %d new skill keywords for course %d", len(courseParams.SkillKeywordIDs), courseParams.ID)
+			for i, skillKeywordID := range courseParams.SkillKeywordIDs {
+				repo.Logger.Infof("Inserting skill keyword %d/%d: ID %d for course %d", i+1, len(courseParams.SkillKeywordIDs), skillKeywordID, courseParams.ID)
+				if transErr = courseSkillKeywordRepo.InsertCourseSkillKeywordWithTx(tx, courseParams.ID, skillKeywordID); transErr != nil {
+					repo.Logger.Errorf("Failed to insert skill keyword %d for course %d: %v", skillKeywordID, courseParams.ID, transErr)
+					return transErr
+				}
+			}
+
+			finalKeywords, finalErr := courseSkillKeywordRepo.GetSkillKeywordsByCourseID(courseParams.ID)
+			if finalErr == nil {
+				repo.Logger.Infof("FINAL RESULT: Course %d now has %d skill keywords in database", courseParams.ID, len(finalKeywords))
+				if len(finalKeywords) != len(courseParams.SkillKeywordIDs) {
+					repo.Logger.Errorf("MISMATCH: Expected %d skill keywords but found %d in database", len(courseParams.SkillKeywordIDs), len(finalKeywords))
+				}
+			}
+		}
+
+		return nil
+	})
 
 	return err
 }
@@ -188,7 +193,6 @@ func (repo *PgCourseRepository) DeleteCourse(courseID int) error {
 func (repo *PgCourseRepository) GetUserCourses(userID int) ([]m.Course, error) {
 	var userProgresses []m.UserProgress
 
-	// Query user progresses with their related courses in a single query
 	query := repo.DB.Model(&userProgresses).
 		Relation("Course").
 		Where("user_progress.user_id = ?", userID).
@@ -196,14 +200,12 @@ func (repo *PgCourseRepository) GetUserCourses(userID int) ([]m.Course, error) {
 		Where("course.deleted_at IS NULL").
 		Order("user_progress.course_position ASC")
 
-	// Execute the query
 	err := query.Select()
 	if err != nil {
 		repo.Logger.Errorf("Error fetching user courses: %v", err)
 		return nil, err
 	}
 
-	// Extract courses from user progresses
 	var courses []m.Course
 	for _, progress := range userProgresses {
 		if progress.Course != nil {

@@ -446,3 +446,138 @@ func (ctr *CourseController) GetCourseDetail(c echo.Context) error {
 		Data:    courseDetail,
 	})
 }
+
+// UpdateCourse updates an existing course
+// Params: echo.Context
+// Returns: error
+func (ctr *CourseController) UpdateCourse(c echo.Context) error {
+	updateCourseParams := new(param.UpdateCourseParams)
+	if err := c.Bind(updateCourseParams); err != nil {
+		ctr.Logger.Errorf("Unable to bind parameters: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Invalid Parameters",
+			Data:    err,
+		})
+	}
+
+	// Debug: Log the received parameters
+	ctr.Logger.Infof("Received UpdateCourse request - Course ID: %d, Title: %s, SkillKeywordIDs: %v",
+		updateCourseParams.ID, updateCourseParams.Title, updateCourseParams.SkillKeywordIDs)
+
+	if _, err := valid.ValidateStruct(updateCourseParams); err != nil {
+		ctr.Logger.Errorf("Validation failed: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: err.Error(),
+		})
+	}
+	course, err := ctr.CourseRepo.GetCourseByID(updateCourseParams.ID)
+	if err != nil {
+		ctr.Logger.Errorf("Course not found: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Course not found",
+		})
+	}
+
+	if updateCourseParams.Thumbnail != "" && !strings.HasPrefix(updateCourseParams.Thumbnail, "course_thumbnails/") {
+		parts := strings.SplitN(updateCourseParams.Thumbnail, ",", 2)
+		if len(parts) != 2 {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Thumbnail Format",
+			})
+		}
+
+		mimeType := parts[0]
+		base64Data := parts[1]
+
+		formatImageThumbnail := ""
+		if strings.HasPrefix(mimeType, "data:image/") {
+			formatImageThumbnail = strings.TrimPrefix(mimeType, "data:image/")
+			formatImageThumbnail = strings.Split(formatImageThumbnail, ";")[0]
+		}
+
+		if formatImageThumbnail == "" {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Invalid Image Format",
+			})
+		}
+
+		if _, check := utils.FindStringInArray(cf.AllowFormatImageList, formatImageThumbnail); !check {
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "The Thumbnail field must be an image",
+			})
+		}
+
+		if course.Thumbnail != "" {
+			err := ctr.cloud.DeleteFileCloud(course.Thumbnail, cf.ThumbnailFolderGCS)
+			if err != nil {
+				ctr.Logger.Warnf("Unable to delete old thumbnail: %v", err)
+			}
+		}
+		millisecondTimeNow := int(time.Now().UnixNano() / int64(time.Millisecond))
+		nameThumbnail := fmt.Sprintf("course_%d_%d.%s", updateCourseParams.ID, millisecondTimeNow, formatImageThumbnail)
+		err := ctr.cloud.UploadFileToCloud(base64Data, nameThumbnail, cf.ThumbnailFolderGCS)
+		if err != nil {
+			ctr.Logger.Errorf("Error uploading thumbnail: %v", err)
+			return c.JSON(http.StatusOK, cf.JsonResponse{
+				Status:  cf.FailResponseCode,
+				Message: "Error uploading thumbnail",
+			})
+		}
+		updateCourseParams.Thumbnail = nameThumbnail
+	}
+
+	err = ctr.CourseRepo.UpdateCourse(updateCourseParams, ctr.UserCourseRepo, ctr.CourseSkillKeywordRepo)
+	if err != nil {
+		ctr.Logger.Errorf("Error updating course: %v", err)
+		return c.JSON(http.StatusInternalServerError, cf.JsonResponse{
+			Status:  cf.FailResponseCode,
+			Message: "Unable to update course",
+		})
+	}
+	updatedCourse, err := ctr.CourseRepo.GetCourseByID(updateCourseParams.ID)
+	if err != nil {
+		ctr.Logger.Warnf("Unable to get course information after update: %v", err)
+		return c.JSON(http.StatusOK, cf.JsonResponse{
+			Status:  cf.SuccessResponseCode,
+			Message: "Course updated successfully",
+		})
+	}
+
+	thumbnailURL := ""
+	if updatedCourse.Thumbnail != "" {
+		thumbnailURL = ctr.cloud.GetURL(updatedCourse.Thumbnail, cf.ThumbnailFolderGCS)
+	}
+	courseResponse := map[string]interface{}{
+		"course_id":   updatedCourse.ID,
+		"title":       updatedCourse.Title,
+		"description": updatedCourse.Description,
+		"thumbnail":   thumbnailURL,
+		"category":    updatedCourse.Category,
+		"duration":    updatedCourse.Duration,
+		"created_by":  updatedCourse.CreatedBy,
+		"updated_at":  updatedCourse.UpdatedAt.Format(cf.FormatDateDisplay),
+	}
+
+	skillKeywords, err := ctr.CourseSkillKeywordRepo.GetSkillKeywordsByCourseID(updatedCourse.ID)
+	if err == nil {
+		skillKeywordNames := []string{}
+		for _, sk := range skillKeywords {
+			skillKeywordNames = append(skillKeywordNames, sk.Name)
+		}
+		courseResponse["skill_keyword"] = skillKeywordNames
+	} else {
+		ctr.Logger.Errorf("Failed to fetch skill keywords for course %d: %v", updatedCourse.ID, err)
+		courseResponse["skill_keyword"] = []string{}
+	}
+	return c.JSON(http.StatusOK, cf.JsonResponse{
+		Status:  cf.SuccessResponseCode,
+		Message: "Course updated successfully",
+		Data:    courseResponse,
+	})
+}
